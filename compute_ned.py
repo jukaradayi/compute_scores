@@ -104,19 +104,30 @@ def ned_from_aren(classes_file):
     return intervals, names
 
 
-def stream_stats(n, ned, mean_ned):
-    ''' '''
+def stream_stats(n, ned, mean_ned, var_ned):
+    ''' compute the straming statistics of order 2 for a ned stream 
+    this implementation of stream statistics is based on 
+    https://arxiv.org/pdf/1510.04923.pdf
+
+    one of the requiriments is that the variable is positive
+    '''
+
+    # check if it's a valid value
+    if ned < 0.0:
+        logging.info("computed invalid NED in %s", classes_file)
+        raise
+
+    # the rolling statistics ...
     n += 1                                      
-    delta_0 = neds - mean_ned           
+    delta_0 = ned - mean_ned           
     mean_ned += delta_0 / n       
-    delta_1 = neds - mean_ned           
-    var_ned += delta_within_0 * delta_within_1  
-
-
+    delta_1 = ned - mean_ned           
+    var_ned += delta_0 * delta_1 # TODO chech this equation
+    return n, mean_ned, var_ned 
 
 
 def ned_from_class(classes_file):
-    '''compute the ned from the tde class file'''
+    '''compute the ned from the tde class file, in computes the '''
   
     ## reading the phoneme gold
     phn_gold = PHON_GOLD 
@@ -128,29 +139,35 @@ def ned_from_class(classes_file):
     # following by a list of intervals and ending
     # by an space ... once the space is reached it
     # is possible to compute the ned within the class
+
     # TODO : this code assume that the class file is build correctly but if not???
     logging.info("Parsing class file %s", classes_file)
+    
+    # initializing things
     classes = list()
     neds = list()
     n_pairs = count()
     n_cross, n_within, n_overall = 0, 0, 0
-    mean_ned_cross, mean_ned_within, mean_ned_overall = 0, 0, 0 
-    var_ned_cross, var_ned_within, var_ned_overall = 0, 0, 0
+    mean_cross, mean_within, mean_overall = 0, 0, 0 
+    var_cross, var_within, var_overall = 0, 0, 0
 
-    # file is decoded line by line and ned is computed online
-    # to avoid using a huge amount of memory 
+    # file is decoded line by line and ned statistics are computed in 
+    # a streaming to avoid using a high amount of memory
     with codecs.open(classes_file, encoding='utf8') as cfile:
         for lines in cfile:
             line = lines.strip()
             if len(line) == 0: 
-                # empty line means that the class has
-                # ended and it is possilbe to compute the ne
-                #logging.debug("Doing class %s", class_num)
+                # empty line means that the class has ended and it is possilbe to compute ned
+                
+                # compute the ned for all combination of intervals without replacement 
+                # in group of two
                 for elem1, elem2 in combinations(range(len(classes)), 2):
 
+                    # search for the intevals in the phoneme file
+                    # first file 
                     b1_ = bisect_left(gold[classes[elem1][0]]['start'], classes[elem1][1])
                     e1_ = bisect_right(gold[classes[elem1][0]]['end'], classes[elem1][2])
-                    
+                    # second file
                     b2_ = bisect_left(gold[classes[elem2][0]]['start'], classes[elem2][1])
                     e2_ = bisect_right(gold[classes[elem2][0]]['end'], classes[elem2][2])
                   
@@ -158,7 +175,8 @@ def ned_from_class(classes_file):
                         e1_ = b1_+1
                     if b2_ == e2_:
                         e2_ == b2_+1
-           
+
+                    # get the phonemes 
                     s1 = gold[classes[elem1][0]]['phon'][b1_:e1_] 
                     s2 = gold[classes[elem2][0]]['phon'][b2_:e2_]
            
@@ -174,34 +192,21 @@ def ned_from_class(classes_file):
                     else:
                         neds_ = float(editdistance.eval(s1, s2)) / max(len(s1), len(s2))
                     
-
-                    # streaming statisitcs from from https://arxiv.org/pdf/1510.04923.pdf 
-                    # this equations are valid for positive values (ned>0)
+                    # streaming statisitcs  
                     if classes[elem1][0] == classes[elem2][0]: # within 
-                        n_within += 1
-                        delta_within_0 = neds_ - mean_ned_within
-                        mean_ned_within += delta_within_0 / n_within 
-                        delta_within_1 = neds_ - mean_ned_within 
-                        var_ned_within += delta_within_0 * delta_within_1
-
+                        n_within, mean_within, var_within = \
+                                stream_stats(n_within, neds_, mean_within, var_within)
+                        
                     else: # cross speaker 
-                        n_cross += 1
-                        delta_cross_0 = neds_ - mean_ned_cross
-                        mean_ned_cross += delta_cross_0 / n_cross 
-                        delta_cross_1 = neds_ - mean_ned_cross 
-                        var_ned_cross += delta_cross_0 * delta_cross_1
+                        n_cross, mean_cross, var_cross = \
+                                stream_stats(n_cross, neds_, mean_cross, var_cross)
 
-                    # overall speakers
-                    # https://arxiv.org/abs/1510.04923 
-                    n_overall += 1
-                    delta_overall_0 = neds_ - mean_ned_overall
-                    mean_ned_overall += delta_overall_0 / n_overall 
-                    delta_overall_1 = neds_ - mean_ned_overall 
-                    var_ned_overall += delta_overall_0 * delta_overall_1
-
+                    # overall speakers = all the information
+                    n_overall, mean_overall, var_overall = \
+                            stream_stats(n_cross, neds_, mean_cross, var_cross)
+                    
+                    # it will show some work is been done ...
                     #sys.stderr.write("{:5.2f}\n".format(neds_))
- 
-                    #neds.append([neds_, same_speaker, class_num])
                     n_total = n_pairs.next()
                     if (n_total%1e6) == 0.0:
                         logging.debug("done %s pairs", n_total)
@@ -209,28 +214,29 @@ def ned_from_class(classes_file):
                 # clean the varibles 
                 classes = list()
 
+            # if is found the label Class do nothing  
             elif line[:5] == 'Class': # the class + number + ngram if available
-                class_num = int(line.split(' ')[1]) # Class classnb [anything]
-            
+                pass
+           
+            # getting the informati of the pairs
             else:
                 fname, start, end = line.split(' ')
                 classes.append([fname, float(start), float(end)])
 
-    tot_within = 1.0 or n_within-1.0
-    tot_cross = 1.0 or n_cross-1.0
-    tot_overall = 1.0 or n_overall-1.0
-    var_ned_within = var_ned_within / tot_within
-    var_ned_cross = var_ned_cross / tot_cross
-    var_ned_overall = var_ned_overall / tot_overall
+    # avoid a division by 0 by setting the min value = 1.0
+    var_within = var_within / (1.0 or n_within-1.0) 
+    var_cross = var_cross / (1.0 or n_cross-1.0)
+    var_overall = var_overall / (1.0 or n_overall-1.0)
 
-    logging.info('overall: NED={:5.2f} std={:5.2f} pairs={}'.format(mean_ned_overall,
-                 np.sqrt(var_ned_overall), n_overall)) 
+    # logging the results
+    logging.info('overall: NED={:5.2f} std={:5.2f} pairs={}'.format(mean_overall,
+                 np.sqrt(var_overall), n_overall)) 
     
-    logging.info('cross: NED={:5.2f} std={:5.2f} pairs={}'.format(mean_ned_cross, 
-                 np.sqrt(var_ned_cross), n_cross))
+    logging.info('cross: NED={:5.2f} std={:5.2f} pairs={}'.format(mean_cross, 
+                 np.sqrt(var_cross), n_cross))
 
-    logging.info('within: NED={:5.2f} std={:5.2f} pairs={}'.format(mean_ned_within, 
-                 np.sqrt(var_ned_within), n_within))
+    logging.info('within: NED={:5.2f} std={:5.2f} pairs={}'.format(mean_within, 
+                 np.sqrt(var_within), n_within))
 
 
 def read_gold_phn(phn_gold):
