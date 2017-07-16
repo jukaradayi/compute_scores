@@ -109,11 +109,6 @@ def ned_from_class(classes_file):
                     b2_ = bisect_left(gold[classes[elem2][0]]['start'], classes[elem2][1])
                     e2_ = bisect_right(gold[classes[elem2][0]]['end'], classes[elem2][2])
                   
-                    if b1_ == e1_:
-                        e1_ = b1_+1
-                    if b2_ == e2_:
-                        e2_ == b2_+1
-
                     # get the phonemes 
                     s1 = gold[classes[elem1][0]]['phon'][b1_:e1_] 
                     s2 = gold[classes[elem2][0]]['phon'][b2_:e2_]
