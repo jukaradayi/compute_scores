@@ -5,8 +5,7 @@ import os
 import logging
 import codecs
 from bisect import bisect_left, bisect_right, bisect
-from itertools import izip, izip_longest, combinations, count
-from collections import defaultdict
+from itertools import combinations, count
 import argparse
 
 import numpy as np 
@@ -50,12 +49,6 @@ def get_logger(level=logging.WARNING):
     FORMAT = '%(asctime)s - {} - %(levelname)s - %(message)s'.format(disc_class)
     #logging.basicConfig(filename=LOG, format=FORMAT, level=LOG_LEV)
     logging.basicConfig(stream=sys.stdout, format=FORMAT, level=LOG_LEV)
-
-
-# from itertools examples  
-def grouper(iterable, n, fillvalue=None):
-    args = [iter(iterable)] * n
-    return izip_longest(*args, fillvalue=fillvalue)
 
 
 def stream_stats(n, ned, mean_ned, var_ned):
