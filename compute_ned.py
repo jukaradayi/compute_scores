@@ -58,52 +58,6 @@ def grouper(iterable, n, fillvalue=None):
     return izip_longest(*args, fillvalue=fillvalue)
 
 
-def ned_from_aren(classes_file):
-    ''' get the intervals from Arens out.1 '''
-
-    # decoding the output from Aren's ZRTools 
-    logging.info("Parsing out.1 file %s", classes_file)
-    dpairs = defaultdict(list)
-    with codecs.open(classes_file, encoding='utf8') as fdisc:
-        for line in fdisc.readlines():
-            l = line.strip().split(' ')
-            if len(l) == 2: # names of files
-                pair_files = ' '.join(l)
-            elif len(l) == 5 or len(l) == 7: # 5 from knn, 7 from Aren result
-                dpairs[pair_files].append([float(x) for x in l])
-            else:
-                print(l)
-                logging.error("Error in file %s", classes_file) 
-                logging.error("%s", l)
-                sys.exit()
-
-    logging.info("Generating pairs")    
-    b1, e1, b2, e2, n1, n2, se, cs = ([] for i in range(8)) 
-    class_num = count() # the class number
-    for file_pair in dpairs.keys():
-        fileX, fileY = file_pair.split(' ')
-        # same speaker = 1 if within- and 0 if cross-speaker
-        se_ = 1 if fileX==fileY else 0 
-        
-        for res in dpairs[file_pair]:
-            n1 += [fileX]
-            b1 += [res[0]/100.0] # res[0] is in frames (1/100s)
-            e1 += [res[1]/100.0]
-            
-            n2 += [fileY]
-            b2 += [res[2]/100.0]
-            e2 += [res[3]/100.0]
-           
-            se += [se_]
-            cs += [class_num.next()]
-
-    logging.info("Joining all intevals and names")    
-    intervals = np.vstack((b1, e1, b2, e2, se, cs)).T
-    names = np.vstack((n1, n2)).T
- 
-    return intervals, names
-
-
 def stream_stats(n, ned, mean_ned, var_ned):
     ''' compute the straming statistics of order 2 for a ned stream 
     this implementation of stream statistics is based on 
