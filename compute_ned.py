@@ -19,26 +19,17 @@ import editdistance # see (1)
 # distance (https://github.com/bootphon/tde, module tde.substrings.levenshtein) and it's a bit faster 
 
 # load environmental varibles
-
 try:
     PHON_GOLD=os.environ['PHON_GOLD']
 except:
     print("PHON_GOLD not set")
     sys.exit
 
-try:
-    disc_class = sys.argv[1]
-except:
-    print("use compute_ned.py [FILE]")
-    sys.exit
-
-
-# if LOG not exist then use the stderr  
+# if LOG environment doesnt exist then use the stderr  
 try:
     LOG = os.environ['LOG_NED']
 except:
     LOG = 'test.log' 
-
 
 #LOG_LEV = logging.ERROR
 LOG_LEV = logging.DEBUG
@@ -217,8 +208,20 @@ def read_gold_phn(phn_gold):
 
 if __name__ == '__main__':
 
+    command_example = '''example:
+    
+        compute_ned.py file.class
 
-    get_logger(level=logging.DEBUG)
+    '''
+    parser = argparse.ArgumentParser(epilog=command_example)
+    parser.add_argument('fclass', metavar='CLASS_FILE', nargs=1, \
+            help='Class file in tde format')
+    args = parser.parse_args()
+
+    # TODO: check file
+    disc_class = args.fclass[0]
+
+    get_logger(level=LOG_LEV)
     logging.info("Begining computing NED for %s", disc_class)
     ned_from_class(disc_class)
     logging.info('Finished computing NED for %s', disc_class)

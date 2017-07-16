@@ -21,12 +21,19 @@ In the test directory I include three files:
 - mandarin.out: the raw output of ZRTools discorery for the Challenge 2017, in the
                 ZRTools format.
 
-the use is like, for mandarin.txt:
+the script use to compute the ned for a file with the class tde format (mandarin.txt) is 
+`compute_ned.py`, for example for the test mandarin.txt file you can do:
 
     $ . config
-    $ python test/mandarin.txt
+    $ ./compute_ned.py test/mandarin.txt | tee mandarin.log
 
+to decode the log file I use:
 
+    $ sed -rn '/^.*within: NED=(.*) std=.*pairs=(.*)$/\1 \2/p' mandarin.log
 
-it will output a log that you will need to decode  
+to compute ned from the raw output of ZRTools I do:
+
+    $ ./zrtools2eval.py test/mandarin.out > mandarin.class 
+    $ ./compute_ned.py mandarin.class | tee mandarin.log
+
 
