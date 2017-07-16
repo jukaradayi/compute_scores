@@ -11,7 +11,7 @@
 Edit the `config` file, you should set the kaldi alignement phone file for the
 language you are evaluating
 
-# exaple of use 
+# example of use 
 
 In the test directory I include three files:
 
