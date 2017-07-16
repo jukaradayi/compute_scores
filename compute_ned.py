@@ -65,7 +65,7 @@ def stream_stats(n, ned, mean_ned, var_ned):
 
 
 def ned_from_class(classes_file):
-    '''compute the ned from the tde class file, in computes the '''
+    '''compute the ned from the tde class file.'''
   
     ## reading the phoneme gold
     phn_gold = PHON_GOLD 
@@ -89,6 +89,13 @@ def ned_from_class(classes_file):
     mean_cross, mean_within, mean_overall = 0, 0, 0 
     var_cross, var_within, var_overall = 0, 0, 0
 
+    # to compute NED you'll need the following steps:
+    # 1. search for the pair of words the correponding 
+    #    phoneme anotations.
+    # 2. compute the Levenshtein distance between the two string.
+    # 
+    # see bellow 
+
     # file is decoded line by line and ned statistics are computed in 
     # a streaming to avoid using a high amount of memory
     with codecs.open(classes_file, encoding='utf8') as cfile:
@@ -101,7 +108,8 @@ def ned_from_class(classes_file):
                 # in group of two
                 for elem1, elem2 in combinations(range(len(classes)), 2):
 
-                    # search for the intevals in the phoneme file
+                    # 1. search for the intevals in the phoneme file
+                    
                     # first file 
                     b1_ = bisect_left(gold[classes[elem1][0]]['start'], classes[elem1][1])
                     e1_ = bisect_right(gold[classes[elem1][0]]['end'], classes[elem1][2])
@@ -123,6 +131,7 @@ def ned_from_class(classes_file):
                         #neds_ = 1.0
                         continue
                     else:
+                        # 2. compute the Levenshtein distance and NED
                         neds_ = float(editdistance.eval(s1, s2)) / max(len(s1), len(s2))
                     
                     # streaming statisitcs  
