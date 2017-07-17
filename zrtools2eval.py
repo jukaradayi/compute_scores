@@ -18,6 +18,8 @@ def dec_zrtools(f_disc_pairs):
                 pair_files = ' '.join(l)
             elif len(l) == 7: # the resulting pairs
                 dpairs[pair_files].append([float(x) for x in l])
+            elif len(l)==6: # old version of ZRTool files 
+                dpairs[pair_files].append([float(x) for x in l])
             else:
                 print(l)
                 sys.exit()

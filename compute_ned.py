@@ -145,7 +145,7 @@ def ned_from_class(classes_file):
 
                     # overall speakers = all the information
                     n_overall, mean_overall, var_overall = \
-                            stream_stats(n_cross, neds_, mean_cross, var_cross)
+                            stream_stats(n_overall, neds_, mean_overall, var_overall)
                     
                     # it will show some work is been done ...
                     #sys.stderr.write("{:5.2f}\n".format(neds_))
