@@ -1,5 +1,4 @@
 
-
 # gold files
 export PHON_GOLD=./test/mandarin.phn
 
