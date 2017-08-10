@@ -70,8 +70,10 @@ def cov_from_class(classes_file):
 
                     # overall speakers = all the information
                     n_overall+=1
-                    count_overall[b1_:e1_]=1
+                    count_overall[b1_:e1_] = 1
 
+                    # print len(count_overall[b1_:e1_]) 
+                        
                     # it will show some work is been done ...
                     #sys.stderr.write("{:5.2f}\n".format(neds_))
                     n_total = n_pairs.next()
@@ -92,7 +94,7 @@ def cov_from_class(classes_file):
 
     # logging the results
     cov_overall = count_overall.sum() / len(count_overall)
-    logging.info('overall: COV={:5.2f} pairs={}'.format(cov_overall, n_overall))
+    logging.info('overall: COV={:5.2f} elements={}'.format(cov_overall, n_overall))
 
 
 if __name__ == '__main__':
