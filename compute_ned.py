@@ -160,7 +160,7 @@ def ned_from_class(classes_file):
             elif line[:5] == 'Class': # the class + number + ngram if available
                 pass
            
-            # getting the informati of the pairs
+            # getting the information of the pairs
             else:
                 fname, start, end = line.split(' ')
                 classes.append([fname, float(start), float(end)])
