@@ -72,8 +72,8 @@ def cov_from_class(classes_file):
                     n_overall+=1
                     count_overall[b1_:e1_] = 1
 
-                    # print len(count_overall[b1_:e1_]) 
-                        
+                    # print len(count_overall[b1_:e1_])
+
                     # it will show some work is been done ...
                     #sys.stderr.write("{:5.2f}\n".format(neds_))
                     n_total = n_pairs.next()

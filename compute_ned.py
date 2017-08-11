@@ -8,15 +8,15 @@ from bisect import bisect_left, bisect_right, bisect
 from itertools import combinations, count
 import argparse
 
-import numpy as np 
+import numpy as np
 import pandas as pd
-import editdistance # see (1) 
+import editdistance # see (1)
 
 #from joblib import Parallel, delayed
 
 # (1) I checked various edit-distance implementations (see https://github.com/aflc/editdistance)
 # and I found that 'editdistance' gives the same result than our implementation of the
-# distance (https://github.com/bootphon/tde, module tde.substrings.levenshtein) and it's a bit faster 
+# distance (https://github.com/bootphon/tde, module tde.substrings.levenshtein) and it's a bit faster
 
 # load environmental varibles
 try:
@@ -25,11 +25,11 @@ except:
     print("PHON_GOLD not set")
     sys.exit
 
-# if LOG environment doesnt exist then use the stderr  
+# if LOG environment doesnt exist then use the stderr
 try:
     LOG = os.environ['LOG_NED']
 except:
-    LOG = 'test.log' 
+    LOG = 'test.log'
 
 #LOG_LEV = logging.ERROR
 LOG_LEV = logging.DEBUG
@@ -42,10 +42,12 @@ def get_logger(level=logging.WARNING):
     logging.basicConfig(stream=sys.stdout, format=FORMAT, level=LOG_LEV)
 
 
-def stream_stats(n, ned, mean_ned, var_ned):
-    ''' compute the straming statistics of order 2 for a ned stream 
-    this implementation of stream statistics is based on 
+def stream_stats(n, ned, mean_ned):
+    ''' compute the straming statistics of order 2 for a ned stream
+    this implementation of stream statistics is based on
     https://arxiv.org/pdf/1510.04923.pdf
+
+    see also http://prod.sandia.gov/techlib/access-control.cgi/2008/086212.pdf
 
     one of the requiriments is that the variable is positive
     '''
@@ -55,23 +57,23 @@ def stream_stats(n, ned, mean_ned, var_ned):
         logging.info("computed invalid NED in %s", classes_file)
         raise
 
-    # the rolling statistics ...
-    n += 1                                      
-    delta_0 = ned - mean_ned           
-    mean_ned += delta_0 / n       
-    delta_1 = ned - mean_ned           
-    var_ned += delta_0 * delta_1 # TODO chech this equation
-    return n, mean_ned, var_ned 
+    # the rolling statistics from https://arxiv.org/pdf/1510.04923.pdf
+    n += 1
+    delta = ned - mean_ned
+    delta_n = delta / n
+    mean_ned += delta_n
+    m2 = delta * (delta - delta_n)
+    return n, mean_ned, m2
 
 
 def ned_from_class(classes_file):
     '''compute the ned from the tde class file.'''
-  
-    ## reading the phoneme gold
-    phn_gold = PHON_GOLD 
-    gold = read_gold_phn(phn_gold) 
 
-    
+    ## reading the phoneme gold
+    phn_gold = PHON_GOLD
+    gold = read_gold_phn(phn_gold)
+
+
     # parsing the class file.
     # class file begins with the Class header,
     # following by a list of intervals and ending
@@ -80,52 +82,53 @@ def ned_from_class(classes_file):
 
     # TODO : this code assume that the class file is build correctly but if not???
     logging.info("Parsing class file %s", classes_file)
-    
+
     # initializing things
     classes = list()
     neds = list()
     n_pairs = count()
     n_cross, n_within, n_overall = 0, 0, 0
-    mean_cross, mean_within, mean_overall = 0, 0, 0 
-    var_cross, var_within, var_overall = 0, 0, 0
+    mean_cross, mean_within, mean_overall = 0, 0, 0
+    m2_cross, m2_within, m2_overall = 0, 0, 0
 
     # to compute NED you'll need the following steps:
-    # 1. search for the pair of words the correponding 
+    # 1. search for the pair of words the correponding
     #    phoneme anotations.
     # 2. compute the Levenshtein distance between the two string.
-    # 
-    # see bellow 
+    #
+    # see bellow
 
-    # file is decoded line by line and ned statistics are computed in 
+    # file is decoded line by line and ned statistics are computed in
     # a streaming to avoid using a high amount of memory
     with codecs.open(classes_file, encoding='utf8') as cfile:
         for lines in cfile:
             line = lines.strip()
-            if len(line) == 0: 
+            if len(line) == 0:
                 # empty line means that the class has ended and it is possilbe to compute ned
-                
-                # compute the ned for all combination of intervals without replacement 
+
+                # compute the ned for all combination of intervals without replacement
                 # in group of two
                 for elem1, elem2 in combinations(range(len(classes)), 2):
 
                     # 1. search for the intevals in the phoneme file
-                    
-                    # first file 
+
+                    # first file
                     b1_ = bisect_left(gold[classes[elem1][0]]['start'], classes[elem1][1])
                     e1_ = bisect_right(gold[classes[elem1][0]]['end'], classes[elem1][2])
+
                     # second file
                     b2_ = bisect_left(gold[classes[elem2][0]]['start'], classes[elem2][1])
                     e2_ = bisect_right(gold[classes[elem2][0]]['end'], classes[elem2][2])
-                  
-                    # get the phonemes 
-                    s1 = gold[classes[elem1][0]]['phon'][b1_:e1_] 
+
+                    # get the phonemes
+                    s1 = gold[classes[elem1][0]]['phon'][b1_:e1_]
                     s2 = gold[classes[elem2][0]]['phon'][b2_:e2_]
-           
-                    # short time window then it not found the phonems  
+
+                    # short time window then it not found the phonems
                     if len(s1) == 0 and len(s2) == 0:
                         #neds_ = 1.0
                         continue
-                  
+
                     # ned for an empty string and a string is 1
                     if len(s1) == 0 or len(s2) == 0:
                         #neds_ = 1.0
@@ -133,58 +136,58 @@ def ned_from_class(classes_file):
                     else:
                         # 2. compute the Levenshtein distance and NED
                         neds_ = float(editdistance.eval(s1, s2)) / max(len(s1), len(s2))
-                    
-                    # streaming statisitcs  
-                    if classes[elem1][0] == classes[elem2][0]: # within 
-                        n_within, mean_within, var_within = \
-                                stream_stats(n_within, neds_, mean_within, var_within)
-                        
-                    else: # cross speaker 
-                        n_cross, mean_cross, var_cross = \
-                                stream_stats(n_cross, neds_, mean_cross, var_cross)
+
+                    # streaming statisitcs
+                    if classes[elem1][0] == classes[elem2][0]: # within
+                        n_within, mean_within, m2_within = \
+                                stream_stats(n_within, neds_, mean_within)
+
+                    else: # cross speaker
+                        n_cross, mean_cross, m2_cross = \
+                                stream_stats(n_cross, neds_, mean_cross)
 
                     # overall speakers = all the information
-                    n_overall, mean_overall, var_overall = \
-                            stream_stats(n_overall, neds_, mean_overall, var_overall)
-                    
+                    n_overall, mean_overall, m2_overall = \
+                            stream_stats(n_overall, neds_, mean_overall)
+
                     # it will show some work is been done ...
                     #sys.stderr.write("{:5.2f}\n".format(neds_))
                     n_total = n_pairs.next()
                     if (n_total%1e6) == 0.0:
                         logging.debug("done %s pairs", n_total)
 
-                # clean the varibles 
+                # clean the varibles
                 classes = list()
 
-            # if is found the label Class do nothing  
+            # if is found the label Class do nothing
             elif line[:5] == 'Class': # the class + number + ngram if available
                 pass
-           
+
             # getting the information of the pairs
             else:
                 fname, start, end = line.split(' ')
                 classes.append([fname, float(start), float(end)])
 
     # avoid a division by 0 by setting the min value = 1.0
-    var_within = var_within / (1.0 or n_within-1.0) 
-    var_cross = var_cross / (1.0 or n_cross-1.0)
-    var_overall = var_overall / (1.0 or n_overall-1.0)
+    var_within = m2_within / (1.0 or n_within)
+    var_cross = m2_cross / (1.0 or n_cross)
+    var_overall = m2_overall / (1.0 or n_overall)
 
     # logging the results
     logging.info('overall: NED={:5.2f} std={:5.2f} pairs={}'.format(mean_overall,
-                 np.sqrt(var_overall), n_overall)) 
-    
-    logging.info('cross: NED={:5.2f} std={:5.2f} pairs={}'.format(mean_cross, 
+                 np.sqrt(var_overall), n_overall))
+
+    logging.info('cross: NED={:5.2f} std={:5.2f} pairs={}'.format(mean_cross,
                  np.sqrt(var_cross), n_cross))
 
-    logging.info('within: NED={:5.2f} std={:5.2f} pairs={}'.format(mean_within, 
+    logging.info('within: NED={:5.2f} std={:5.2f} pairs={}'.format(mean_within,
                  np.sqrt(var_within), n_within))
 
 
 def read_gold_phn(phn_gold):
     ''' read the gold phoneme file with fields : speaker/file start end phon,
     returns a dict with the file/speaker as a key and the following structure
-    
+
     gold['speaker'] = [{'start': list(...)}, {'end': list(...), 'phon': list(...)}]
     '''
     df = pd.read_table(phn_gold, sep='\s+', header=None, encoding='utf8',
@@ -205,15 +208,15 @@ def read_gold_phn(phn_gold):
         phon = df[df['file'] == k]['phon'].values
         assert not any(np.greater_equal.outer(start[:-1] - start[1:], 0)), 'start in phon file is not odered!!!'
         assert not any(np.greater_equal.outer(end[:-1] - end[1:], 0)), 'end in phon file is not odered!!!'
-        gold[k] = {'start': list(start), 'end': list(end), 'phon': list(phon)} 
-    
+        gold[k] = {'start': list(start), 'end': list(end), 'phon': list(phon)}
+
     return gold
 
 
 if __name__ == '__main__':
 
     command_example = '''example:
-    
+
         compute_ned.py file.class
 
     '''
