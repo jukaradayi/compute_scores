@@ -111,24 +111,42 @@ def ned_from_class(classes_file):
                     # 1. search for the intevals in the phoneme file
                     
                     # first file 
-                    b1_ = bisect_left(gold[classes[elem1][0]]['start'], classes[elem1][1])
-                    e1_ = bisect_right(gold[classes[elem1][0]]['end'], classes[elem1][2])
+                    try:
+                        b1_ = bisect_left(gold[classes[elem1][0]]['start'], classes[elem1][1])
+                        e1_ = bisect_right(gold[classes[elem1][0]]['end'], classes[elem1][2])
+                    except KeyError:
+                        logging.error("%s not in gold", classes[elem1][0])
+                        continue
+                    
                     # second file
-                    b2_ = bisect_left(gold[classes[elem2][0]]['start'], classes[elem2][1])
-                    e2_ = bisect_right(gold[classes[elem2][0]]['end'], classes[elem2][2])
-                  
+                    try: 
+                        b2_ = bisect_left(gold[classes[elem2][0]]['start'], classes[elem2][1])
+                        e2_ = bisect_right(gold[classes[elem2][0]]['end'], classes[elem2][2])
+                    except KeyError:
+                        logging.error("%s not in gold", classes[elem2][0])
+                        continue
+
                     # get the phonemes 
                     s1 = gold[classes[elem1][0]]['phon'][b1_:e1_] 
                     s2 = gold[classes[elem2][0]]['phon'][b2_:e2_]
            
                     # short time window then it not found the phonems  
                     if len(s1) == 0 and len(s2) == 0:
+                        logging.debug("%s interv(%f, %f) and %s interv(%f, %f) not in gold", 
+                                classes[elem1][0], b1_, e1_,
+                                classes[elem2][0], b2_, e2_)
                         #neds_ = 1.0
                         continue
                   
                     # ned for an empty string and a string is 1
                     if len(s1) == 0 or len(s2) == 0:
                         #neds_ = 1.0
+                        if s1 == 0:
+                            logging.debug("%s interv(%f, %f) not in gold",
+                                    classes[elem1][0], b1_, e1_)
+                        else:
+                            logging.debug("%s interv(%f, %f) not in gold",
+                                    classes[elem2][0], b2_, e2_)
                         continue
                     else:
                         # 2. compute the Levenshtein distance and NED
