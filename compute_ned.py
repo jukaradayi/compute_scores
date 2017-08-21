@@ -42,10 +42,12 @@ def get_logger(level=logging.WARNING):
     logging.basicConfig(stream=sys.stdout, format=FORMAT, level=LOG_LEV)
 
 
-def stream_stats(n, ned, mean_ned, var_ned):
+def stream_stats(n, ned, mean_ned):
     ''' compute the straming statistics of order 2 for a ned stream 
     this implementation of stream statistics is based on 
     https://arxiv.org/pdf/1510.04923.pdf
+
+    see also http://prod.sandia.gov/techlib/access-control.cgi/2008/086212.pdf
 
     one of the requiriments is that the variable is positive
     '''
@@ -56,12 +58,12 @@ def stream_stats(n, ned, mean_ned, var_ned):
         raise
 
     # the rolling statistics ...
-    n += 1                                      
-    delta_0 = ned - mean_ned           
-    mean_ned += delta_0 / n       
-    delta_1 = ned - mean_ned           
-    var_ned += delta_0 * delta_1 # TODO chech this equation
-    return n, mean_ned, var_ned 
+    n += 1
+    delta = ned - mean_ned
+    delta_n = delta / n
+    mean_ned += delta_n
+    m2 = delta * (delta - delta_n)
+    return n, mean_ned, m2 
 
 
 def ned_from_class(classes_file):
@@ -87,7 +89,7 @@ def ned_from_class(classes_file):
     n_pairs = count()
     n_cross, n_within, n_overall = 0, 0, 0
     mean_cross, mean_within, mean_overall = 0, 0, 0 
-    var_cross, var_within, var_overall = 0, 0, 0
+    m2_cross, m2_within, m2_overall = 0, 0, 0
 
     # to compute NED you'll need the following steps:
     # 1. search for the pair of words the correponding 
@@ -154,16 +156,16 @@ def ned_from_class(classes_file):
                     
                     # streaming statisitcs  
                     if classes[elem1][0] == classes[elem2][0]: # within 
-                        n_within, mean_within, var_within = \
-                                stream_stats(n_within, neds_, mean_within, var_within)
+                        n_within, mean_within, m2_within = \
+                                stream_stats(n_within, neds_, mean_within)
                         
                     else: # cross speaker 
-                        n_cross, mean_cross, var_cross = \
-                                stream_stats(n_cross, neds_, mean_cross, var_cross)
+                        n_cross, mean_cross, m2_cross = \
+                                stream_stats(n_cross, neds_, mean_cross)
 
                     # overall speakers = all the information
-                    n_overall, mean_overall, var_overall = \
-                            stream_stats(n_overall, neds_, mean_overall, var_overall)
+                    n_overall, mean_overall, m2_overall = \
+                            stream_stats(n_overall, neds_, mean_overall)
                     
                     # it will show some work is been done ...
                     #sys.stderr.write("{:5.2f}\n".format(neds_))
@@ -183,20 +185,23 @@ def ned_from_class(classes_file):
                 fname, start, end = line.split(' ')
                 classes.append([fname, float(start), float(end)])
 
-    # avoid a division by 0 by setting the min value = 1.0
-    var_within = var_within / (1.0 or n_within-1.0) 
-    var_cross = var_cross / (1.0 or n_cross-1.0)
-    var_overall = var_overall / (1.0 or n_overall-1.0)
+    # avoid a division by 0 by setting the min value = 2.0
+    n_within = 2.0 if (n_within-1.0)==0 else n_within 
+    n_cross = 2.0 if (n_cross-1.0)==0 else n_cross 
+    n_overall = 2.0 if (n_overall-1.0)==0 else n_overall 
+
+    # computing the variance
+    var_within = m2_within / (n_within - 1.0) 
+    var_cross = m2_cross / (n_cross - 1.0)
+    var_overall = m2_overall / (n_overall - 1.0)
 
     # logging the results
-    logging.info('overall: NED={:5.2f} std={:5.2f} pairs={}'.format(mean_overall,
-                 np.sqrt(var_overall), n_overall)) 
-    
-    logging.info('cross: NED={:5.2f} std={:5.2f} pairs={}'.format(mean_cross, 
-                 np.sqrt(var_cross), n_cross))
-
-    logging.info('within: NED={:5.2f} std={:5.2f} pairs={}'.format(mean_within, 
-                 np.sqrt(var_within), n_within))
+    logging.info('overall: NED=%.2f std=%.2f pairs=%d', mean_overall,
+                 np.sqrt(var_overall), n_overall) 
+    logging.info('cross: NED=%.2f std=%.2f pairs=%d', mean_cross, 
+                 np.sqrt(var_cross), n_cross)
+    logging.info('within: NED=%.2f std=%.2f pairs=%d', mean_within, 
+                 np.sqrt(var_within), n_within)
 
 
 def read_gold_phn(phn_gold):
