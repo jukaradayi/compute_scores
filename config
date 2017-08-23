@@ -1,6 +1,7 @@
 
 # gold files
 export PHON_GOLD=./test/mandarin.phn
+export CLASS_GOLD=./test/mandarin.gold
 
 source activate cscores 
 
