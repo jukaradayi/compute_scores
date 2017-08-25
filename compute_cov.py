@@ -79,13 +79,10 @@ def cov_from_class(classes_file):
                     n_overall+=1
                     count_overall[b1_:e1_] = 1
 
-                    # print len(count_overall[b1_:e1_]) 
-                        
                     # it will show some work is been done ...
-                    #sys.stderr.write("{:5.2f}\n".format(neds_))
                     n_total = n_pairs.next()
                     if (n_total%1e6) == 0.0:
-                        logging.debug("done %s pairs", n_total)
+                        logging.debug("done %s words", n_total)
 
                 # clean the varibles
                 classes = list()
@@ -100,9 +97,14 @@ def cov_from_class(classes_file):
                 classes.append([fname, float(start), float(end)])
 
     # logging the results
-    cov_overall = np.sum(count_overall.astype('int') & count_gold.astype('int')) / count_gold.sum() 
-    #cov_overall = count_overall.sum() / n_phones 
-    logging.info('overall: COV={:.2f} elements={}'.format(cov_overall, n_overall))
+    
+    # coverage using the gold
+    #cov_overall = np.sum(count_overall.astype('int') & count_gold.astype('int')) / count_gold.sum() 
+    
+    # coverage using the phonemes
+    cov_overall = count_overall.sum() / n_phones 
+    
+    logging.info('overall: COV={:.3f} elements={}'.format(cov_overall, n_overall))
 
 
 def read_gold_class(class_gold):
