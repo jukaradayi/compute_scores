@@ -229,7 +229,7 @@ def read_gold_phn(phn_gold):
         assert not any(np.greater_equal.outer(start[:-1] - start[1:], 0)), 'start in phon file is not odered!!!'
         assert not any(np.greater_equal.outer(end[:-1] - end[1:], 0)), 'end in phon file is not odered!!!'
         gold[k] = {'start': list(start), 'end': list(end), 'phon': list(phon)} 
-    
+   
     return gold
 
 

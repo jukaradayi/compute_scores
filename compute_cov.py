@@ -47,8 +47,13 @@ def cov_from_class(classes_file):
     '''compute the cov from the tde class file.'''
 
     ## reading the phoneme gold
-    class_gold = CLASS_GOLD
-    gold, count_gold = read_gold_class(class_gold)
+    phn_gold = PHON_GOLD 
+    class_gold= CLASS_GOLD 
+    gold = read_gold_phn(phn_gold)
+
+    # compute the masks
+    # mask = read_gold_class(class_gold, gold) # mask from the gold file (ZSRC2015/2017)
+    mask = find_mask_ngrams(gold, n=3) # the new mask
 
     # TODO : this code assume that the class file is build correctly but if not???
     logging.info("Parsing class file %s", classes_file)
@@ -77,15 +82,12 @@ def cov_from_class(classes_file):
 
                     # overall speakers = all the information
                     n_overall+=1
-                    count_overall[b1_:e1_] = 1
+                    count_overall[b1_:e1_] = 1 # this variable contains the found phonemes
 
-                    # print len(count_overall[b1_:e1_]) 
-                        
                     # it will show some work is been done ...
-                    #sys.stderr.write("{:5.2f}\n".format(neds_))
                     n_total = n_pairs.next()
                     if (n_total%1e6) == 0.0:
-                        logging.debug("done %s pairs", n_total)
+                        logging.debug("done %s intervals", n_total)
 
                 # clean the varibles
                 classes = list()
@@ -100,21 +102,60 @@ def cov_from_class(classes_file):
                 classes.append([fname, float(start), float(end)])
 
     # logging the results
-    cov_overall = np.sum(count_overall.astype('int') & count_gold.astype('int')) / count_gold.sum() 
+    cov_overall = np.sum(count_overall.astype('int') & mask.astype('int')) / mask.sum() 
+    #cov_overall = np.sum(count_overall.astype('int')) / mask.sum() 
     #cov_overall = count_overall.sum() / n_phones 
-    logging.info('overall: COV={:.2f} elements={}'.format(cov_overall, n_overall))
+    logging.info('overall: COV={:.3f} intervals={}'.format(cov_overall, n_overall))
 
 
-def read_gold_class(class_gold):
-    '''read the class gold file, it contains the gold tokens'''
-  
-    ## reading the phoneme gold 
-    phn_gold = PHON_GOLD 
-    gold = read_gold_phn(phn_gold) 
+def find_ngrams(input_list, n=3):
+    '''return a list with n-grams from the input list'''
+    # http://locallyoptimal.com/blog/2013/01/20/elegant-n-gram-generation-in-python/
+    return zip(*[input_list[i:] for i in range(n)])
 
-    # create the counting vector. Gold tokens could covers less found phonemes   
+
+def find_mask_ngrams(gold, n=3):
+    ''' create a mask with the size of the gold-ngrams for n-grams that are found more than once in the corpus'''
+
     n_phones = sum([len(gold[k]['start']) for k in gold.keys()])
-    count_gold = np.zeros(n_phones)
+    mask = np.zeros(n_phones) 
+    
+    all_grams = defaultdict(int)
+    seen_once = defaultdict(list)
+    high_index = 0
+    for k in gold.keys():
+        phns = gold[k]['phon']
+       
+        # make a list with all the phon-n_grams and their indexes respect to all corpus
+        indexes = np.arange(high_index, high_index+len(phns))
+        index_n_grams = find_ngrams(indexes) # list of indexes of the n-grams
+        n_grams = find_ngrams(phns) # list of n-grams
+        high_index+=len(phns)
+        
+        for n_, n_gram in enumerate(n_grams):
+            # convert the n-grams to a single hash/key
+            n_g = ' '.join([str(x) for x in n_gram])
+            all_grams[n_g]+=1 # track the number of times the n-grams has been seen
+            if all_grams[n_g] > 1: # if see more than once, then include in the mask
+                mask[index_n_grams[n_][0]:index_n_grams[n_][-1]] = 1
+                
+                # also include the first n-grams
+                if n_g in seen_once:
+                    seen_ngram = seen_once.pop(n_g)
+                    mask[seen_ngram[0][0]:seen_ngram[0][-1]] = 1
+                
+            else: # first time that the n-gram has been seen
+                seen_once[n_g].append(index_n_grams[n_]) 
+    return mask
+
+
+def read_gold_class(class_gold, gold_phn):
+    '''read the class gold file that contains the gold tokens, return a mask with the
+    size of the gold phonemes with 1s in the places where phonemes are present in the class'''
+  
+    # create the counting vector. Gold tokens could covers less found phonemes   
+    n_phones = sum([len(gold_phn[k]['start']) for k in gold_phn.keys()])
+    mask = np.zeros(n_phones)
 
     # decode class gold file and store intervals by speaker
     tokens_by_spaker = defaultdict(list)
@@ -128,16 +169,16 @@ def read_gold_class(class_gold):
                 fname, start, end = line.split(' ')
                 tokens_by_spaker[fname].append([float(start), float(end)])
     
-    # find all found fragments in gold and mark them in count_gold
+    # find all found fragments in gold and mark them in mask
     for speaker in tokens_by_spaker.keys():
         # search for intevals in the phoneme file                             
         for interval in tokens_by_spaker[speaker]:
             
-            b1_ = bisect_left(gold[speaker]['start'], interval[0])
-            e1_ = bisect_right(gold[speaker]['end'], interval[1]) 
-            count_gold[b1_:e1_] = 1
+            b1_ = bisect_left(gold_phn[speaker]['start'], interval[0])
+            e1_ = bisect_right(gold_phn[speaker]['end'], interval[1]) 
+            mask[b1_:e1_] = 1
 
-    return gold, count_gold
+    return mask
 
 
 if __name__ == '__main__':
