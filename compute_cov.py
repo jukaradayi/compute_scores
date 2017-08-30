@@ -22,12 +22,6 @@ except:
     print("PHON_GOLD not set")
     sys.exit()
 
-try:
-    CLASS_GOLD=os.environ['CLASS_GOLD']
-except:
-    print("CLASS_GOLD not set")
-    sys.exit()
-
 # if LOG environment doesnt exist then use the stderr
 try:
     LOG = os.environ['LOG_COV']
@@ -48,11 +42,9 @@ def cov_from_class(classes_file):
 
     ## reading the phoneme gold
     phn_gold = PHON_GOLD 
-    class_gold= CLASS_GOLD 
     gold = read_gold_phn(phn_gold)
 
     # compute the masks
-    # mask = read_gold_class(class_gold, gold) # mask from the gold file (ZSRC2015/2017)
     mask = find_mask_ngrams(gold, n=3) # the new mask
 
     # TODO : this code assume that the class file is build correctly but if not???
