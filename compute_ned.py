@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import editdistance # see (1)
 
-# import difflib
+import difflib
 #from joblib import Parallel, delayed
 
 # (1) I checked various edit-distance implementations (see https://github.com/aflc/editdistance)
@@ -34,7 +34,7 @@ except:
 
 #LOG_LEV = logging.ERROR
 LOG_LEV = logging.DEBUG
-#LOG_LEV = logging.INFO
+LOG_LEV = logging.INFO
 
 # configuration of logging
 def get_logger(level=logging.WARNING):
@@ -155,8 +155,9 @@ def ned_from_class(classes_file):
                         # 2. compute the Levenshtein distance and NED
                         neds_ = float(editdistance.eval(s1, s2)) / max(len(s1), len(s2))
                         
-                        # using python standard library difflib
-                        # neds_ = 1 - difflib.SequenceMatcher(None, s1, s2).real_quick_ratio()
+                        #python standard library difflib that is not the same that levenshtein
+                        #it does not yield minimal edit sequences, but does tend to yield matches that “look right” to people
+                        # neds_ = 1.0 - difflib.SequenceMatcher(None, s1, s2).real_quick_ratio()
                     
                     # streaming statisitcs  
                     if classes[elem1][0] == classes[elem2][0]: # within 
