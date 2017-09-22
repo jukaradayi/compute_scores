@@ -43,28 +43,29 @@ def get_logger(level=logging.WARNING):
     logging.basicConfig(stream=sys.stdout, format=FORMAT, level=LOG_LEV)
 
 
-def stream_stats(n, ned, mean_ned):
-    ''' compute the straming statistics of order 2 for a ned stream 
-    this implementation of stream statistics is based on 
-    https://arxiv.org/pdf/1510.04923.pdf
+def stream_stats(sample, n, mean, m2):
+    '''compute terms on-line to compute the median an variance from a stream  
+    this implementation of on-line statistics is based on:
 
-    see also http://prod.sandia.gov/techlib/access-control.cgi/2008/086212.pdf
+    http://prod.sandia.gov/techlib/access-control.cgi/2008/086212.pdf
+    
+    see also https://arxiv.org/pdf/1510.04923.pdf
 
-    one of the requiriments is that the variable is positive
     '''
 
     # check if it's a valid value
-    if ned < 0.0:
+    if sample < 0.0:
         logging.info("computed invalid NED in %s", classes_file)
         raise
 
-    # the rolling statistics ...
+    # the on-line statistics ...
     n += 1
-    delta = ned - mean_ned
+    delta = sample - mean
     delta_n = delta / n
-    mean_ned += delta_n
-    m2 = delta * (delta - delta_n)
-    return n, mean_ned, m2 
+    mean += delta_n
+    m2 += delta * (sample - mean)
+
+    return n, mean, m2 
 
 
 def ned_from_class(classes_file):
@@ -84,7 +85,7 @@ def ned_from_class(classes_file):
     # TODO : this code assume that the class file is build correctly but if not???
     logging.info("Parsing class file %s", classes_file)
     
-    # initializing things
+    # initializing variables used on the streaming computations 
     classes = list()
     neds = list()
     n_pairs = count()
@@ -156,21 +157,22 @@ def ned_from_class(classes_file):
                         neds_ = float(editdistance.eval(s1, s2)) / max(len(s1), len(s2))
                         
                         #python standard library difflib that is not the same that levenshtein
-                        #it does not yield minimal edit sequences, but does tend to yield matches that “look right” to people
+                        #it does not yield minimal edit sequences, but does tend to 
+                        #yield matches that look right to people
                         # neds_ = 1.0 - difflib.SequenceMatcher(None, s1, s2).real_quick_ratio()
                     
                     # streaming statisitcs  
                     if classes[elem1][0] == classes[elem2][0]: # within 
                         n_within, mean_within, m2_within = \
-                                stream_stats(n_within, neds_, mean_within)
+                                stream_stats(neds_, n_within, mean_within, m2_within)
                         
                     else: # cross speaker 
                         n_cross, mean_cross, m2_cross = \
-                                stream_stats(n_cross, neds_, mean_cross)
+                                stream_stats(neds_, n_cross, mean_cross, m2_cross)
 
                     # overall speakers = all the information
                     n_overall, mean_overall, m2_overall = \
-                            stream_stats(n_overall, neds_, mean_overall)
+                            stream_stats(neds_, n_overall, mean_overall, m2_cross)
                     
                     # it will show some work is been done ...
                     #sys.stderr.write("{:5.2f}\n".format(neds_))
