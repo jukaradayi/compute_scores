@@ -43,29 +43,69 @@ def get_logger(level=logging.WARNING):
     logging.basicConfig(stream=sys.stdout, format=FORMAT, level=LOG_LEV)
 
 
-def stream_stats(sample, n, mean, m2):
-    '''compute terms on-line to compute the median an variance from a stream  
-    this implementation of on-line statistics is based on:
-
-    http://prod.sandia.gov/techlib/access-control.cgi/2008/086212.pdf
+class Stream_stats(object):
+    '''Implements a on-line mean and variance, 
     
-    see also https://arxiv.org/pdf/1510.04923.pdf
+       it computes terms on-line to compute the median an variance from a stream
+       this implementation of on-line statistics is based on:
+       
+       http://prod.sandia.gov/techlib/access-control.cgi/2008/086212.pdf
+
+       see also https://arxiv.org/pdf/1510.04923.pdf
 
     '''
+    
+    def __init__(self, sample=0):
 
-    # check if it's a valid value
-    if sample < 0.0:
-        logging.info("computed invalid NED in %s", classes_file)
-        raise
+        # initilize mean and high order stats to 0
+        self.n_ = 0.0
+        self.mean_ = 0.0
+        self.m2_ = 0.0 
+        self.var_ = 0.0
+        self.std_ = 0.0
+        
+        if sample:
+            self._actualize(sample)
 
-    # the on-line statistics ...
-    n += 1
-    delta = sample - mean
-    delta_n = delta / n
-    mean += delta_n
-    m2 += delta * (sample - mean)
+    def _actualize(self, sample):
+        '''actualize deltas'''
 
-    return n, mean, m2 
+        if sample < 0.0:
+            logging.info("computed invalid NED in %s", classes_file)
+            raise
+
+        # compute the pterm used in the on-line stats
+        self.n_ += 1
+        delta = sample - self.mean_
+        delta_n = delta / self.n_
+        self.mean_ += delta_n
+        self.m2_ += delta * (sample - self.mean_)
+
+    def add(self, sample):
+        '''add a sample'''
+        self._actualize(sample)
+
+    def mean(self):
+        '''returns the on-line mean'''
+        return self.mean_
+
+    def var(self):
+        '''return the on-line variance'''
+        n_ = 2.0 if (self.n_ - 1.0) == 0 else self.n_
+        self.var_ = self.m2_ / (n_ - 1.0)
+        return self.var_
+
+    def std(self):
+        '''return the on-line standard error'''
+        return np.sqrt(self.var())
+
+    def n(self):
+        '''return the number values used on in the computations standard error'''
+        return self.n_
+
+
+def func_ned(s1, s2):
+    return float(editdistance.eval(s1, s2)) / max(len(s1), len(s2))
 
 
 def ned_from_class(classes_file):
@@ -87,11 +127,12 @@ def ned_from_class(classes_file):
     
     # initializing variables used on the streaming computations 
     classes = list()
-    neds = list()
-    n_pairs = count()
-    n_cross, n_within, n_overall = 0, 0, 0
-    mean_cross, mean_within, mean_overall = 0, 0, 0 
-    m2_cross, m2_within, m2_overall = 0, 0, 0
+    n_pairs = count() # used to debug
+
+    # objects with the streaming statistics
+    cross = Stream_stats()
+    within = Stream_stats()
+    overall = Stream_stats()
 
     # to compute NED you'll need the following steps:
     # 1. search for the pair of words the correponding 
@@ -154,7 +195,7 @@ def ned_from_class(classes_file):
                         continue
                     else:
                         # 2. compute the Levenshtein distance and NED
-                        neds_ = float(editdistance.eval(s1, s2)) / max(len(s1), len(s2))
+                        ned = func_ned(s1, s2)
                         
                         #python standard library difflib that is not the same that levenshtein
                         #it does not yield minimal edit sequences, but does tend to 
@@ -163,24 +204,20 @@ def ned_from_class(classes_file):
                     
                     # streaming statisitcs  
                     if classes[elem1][0] == classes[elem2][0]: # within 
-                        n_within, mean_within, m2_within = \
-                                stream_stats(neds_, n_within, mean_within, m2_within)
+                        within.add(ned)
                         
                     else: # cross speaker 
-                        n_cross, mean_cross, m2_cross = \
-                                stream_stats(neds_, n_cross, mean_cross, m2_cross)
+                        cross.add(ned)
 
                     # overall speakers = all the information
-                    n_overall, mean_overall, m2_overall = \
-                            stream_stats(neds_, n_overall, mean_overall, m2_cross)
+                    overall.add(ned)
                     
                     # it will show some work is been done ...
-                    #sys.stderr.write("{:5.2f}\n".format(neds_))
                     n_total = n_pairs.next()
                     if (n_total%1e6) == 0.0:
                         logging.debug("done %s pairs", n_total)
 
-                # clean the varibles 
+                # clean the varibles that contains the tokens
                 classes = list()
 
             # if is found the label Class do nothing  
@@ -192,23 +229,13 @@ def ned_from_class(classes_file):
                 fname, start, end = line.split(' ')
                 classes.append([fname, float(start), float(end)])
 
-    # avoid a division by 0 by setting the min value = 2.0
-    n_within = 2.0 if (n_within-1.0)==0 else n_within 
-    n_cross = 2.0 if (n_cross-1.0)==0 else n_cross 
-    n_overall = 2.0 if (n_overall-1.0)==0 else n_overall 
-
-    # computing the variance
-    var_within = m2_within / (n_within - 1.0) 
-    var_cross = m2_cross / (n_cross - 1.0)
-    var_overall = m2_overall / (n_overall - 1.0)
-
     # logging the results
-    logging.info('overall: NED=%.2f std=%.2f pairs=%d', mean_overall,
-                 np.sqrt(var_overall), n_overall) 
-    logging.info('cross: NED=%.2f std=%.2f pairs=%d', mean_cross, 
-                 np.sqrt(var_cross), n_cross)
-    logging.info('within: NED=%.2f std=%.2f pairs=%d', mean_within, 
-                 np.sqrt(var_within), n_within)
+    logging.info('overall: NED=%.2f std=%.2f pairs=%d', overall.mean(),
+                 overall.std(), overall.n()) 
+    logging.info('cross: NED=%.2f std=%.2f pairs=%d', cross.mean(), 
+                 cross.std(), cross.n())
+    logging.info('within: NED=%.2f std=%.2f pairs=%d', within.mean(), 
+                 within.std(), within.n())
 
 
 def read_gold_phn(phn_gold):
