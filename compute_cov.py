@@ -8,6 +8,8 @@ from bisect import bisect_left, bisect_right, bisect
 from itertools import combinations, count
 from collections import defaultdict
 import argparse
+import pdb
+
 
 import numpy as np
 import pandas as pd
@@ -44,8 +46,9 @@ def cov_from_class(classes_file):
     phn_gold = PHON_GOLD 
     gold = read_gold_phn(phn_gold)
 
-    # compute the masks
-    mask = find_mask_ngrams(gold, n=3) # the new mask
+    # get the vector ngram_mask filled with 1s at positions in the gold vector
+    # with repeted ngrams more that once in the gold. 
+    ngram_mask = find_mask_ngrams(gold, ngrams=3) 
 
     # TODO : this code assume that the class file is build correctly but if not???
     logging.info("Parsing class file %s", classes_file)
@@ -55,7 +58,7 @@ def cov_from_class(classes_file):
     n_pairs = count()
     n_overall = 0
     n_phones = sum([len(gold[k]['start']) for k in gold.keys()])
-    count_overall = np.zeros(n_phones)
+    count_phonemes = {k:np.zeros(len(gold[k]['start'])) for k in gold.keys()}
 
     # file is decoded line by line and ned statistics are computed in
     # a streaming to avoid using a high amount of memory
@@ -67,18 +70,19 @@ def cov_from_class(classes_file):
 
                 # compute the cov for the found intervals
                 for elem1 in range(len(classes)):
+                    file_name = classes[elem1][0]
 
                     # search for intevals in the phoneme file
-                    b1_ = bisect_left(gold[classes[elem1][0]]['start'], classes[elem1][1])
-                    e1_ = bisect_right(gold[classes[elem1][0]]['end'], classes[elem1][2])
+                    b1_ = bisect_left(gold[file_name]['start'], classes[elem1][1])
+                    e1_ = bisect_right(gold[file_name]['end'], classes[elem1][2])
 
                     # overall speakers = all the information
                     n_overall+=1
-                    count_overall[b1_:e1_] = 1 # this variable contains the found phonemes
+                    count_phonemes[file_name][b1_:e1_] = 1
 
                     # it will show some work is been done ...
                     n_total = n_pairs.next()
-                    if (n_total%1e6) == 0.0:
+                    if (n_total%1e4) == 0.0:
                         logging.debug("done %s intervals", n_total)
 
                 # clean the varibles
@@ -94,8 +98,12 @@ def cov_from_class(classes_file):
                 classes.append([fname, float(start), float(end)])
 
     # logging the results
-    cov_overall = np.sum(count_overall.astype('int') & mask.astype('int')) / mask.sum() 
-    #cov_overall = np.sum(count_overall.astype('int')) / mask.sum() 
+    count_overall = np.array([])
+    for file_name in count_phonemes.keys():
+        count_overall = np.append(count_overall, count_phonemes[file_name])
+    
+    cov_overall = np.sum(count_overall.astype('int') & ngram_mask.astype('int')) / ngram_mask.sum() 
+    #cov_overall = np.sum(count_overall.astype('int')) / ngram_mask.sum() 
     #cov_overall = count_overall.sum() / n_phones 
     logging.info('overall: COV={:.3f} intervals={}'.format(cov_overall, n_overall))
 
@@ -106,8 +114,8 @@ def find_ngrams(input_list, n=3):
     return zip(*[input_list[i:] for i in range(n)])
 
 
-def find_mask_ngrams(gold, n=3):
-    ''' create a mask with the size of the gold-ngrams for n-grams that are found more than once in the corpus'''
+def find_mask_ngrams(gold, ngrams=3):
+    ''' create a mask with the size of the gold for ngrams that are found more than once in the corpus'''
 
     n_phones = sum([len(gold[k]['start']) for k in gold.keys()])
     mask = np.zeros(n_phones) 
@@ -118,18 +126,18 @@ def find_mask_ngrams(gold, n=3):
     for k in gold.keys():
         phns = gold[k]['phon']
        
-        # make a list with all the phon-n_grams and their indexes respect to all corpus
+        # make a list with all the phon-ngrams and their indexes respect to all corpus
         indexes = np.arange(high_index, high_index+len(phns))
-        index_n_grams = find_ngrams(indexes) # list of indexes of the n-grams
-        n_grams = find_ngrams(phns) # list of n-grams
+        index_ngrams = find_ngrams(indexes, ngrams) # list of indexes of the n-grams
+        phon_ngrams = find_ngrams(phns, ngrams) # list of n-grams
         high_index+=len(phns)
         
-        for n_, n_gram in enumerate(n_grams):
+        for n_, n_gram in enumerate(phon_ngrams):
             # convert the n-grams to a single hash/key
             n_g = ' '.join([str(x) for x in n_gram])
             all_grams[n_g]+=1 # track the number of times the n-grams has been seen
             if all_grams[n_g] > 1: # if see more than once, then include in the mask
-                mask[index_n_grams[n_][0]:index_n_grams[n_][-1]] = 1
+                mask[index_ngrams[n_][0]:index_ngrams[n_][-1]] = 1
                 
                 # also include the first n-grams
                 if n_g in seen_once:
@@ -137,7 +145,7 @@ def find_mask_ngrams(gold, n=3):
                     mask[seen_ngram[0][0]:seen_ngram[0][-1]] = 1
                 
             else: # first time that the n-gram has been seen
-                seen_once[n_g].append(index_n_grams[n_]) 
+                seen_once[n_g].append(index_ngrams[n_]) 
     return mask
 
 
