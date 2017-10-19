@@ -8,7 +8,7 @@ from bisect import bisect_left, bisect_right, bisect
 from itertools import combinations, count
 from collections import defaultdict
 import argparse
-import pdb
+import ipdb
 
 
 import numpy as np
@@ -73,8 +73,22 @@ def cov_from_class(classes_file):
                     file_name = classes[elem1][0]
 
                     # search for intevals in the phoneme file
-                    b1_ = bisect_left(gold[file_name]['start'], classes[elem1][1])
-                    e1_ = bisect_right(gold[file_name]['end'], classes[elem1][2])
+                    try:
+                        b1_ = bisect_left(gold[file_name]['start'], classes[elem1][1])
+                        e1_ = bisect_right(gold[file_name]['end'], classes[elem1][2])
+                    except KeyError: 
+                        logging.error("%s not in gold", classes[elem1][0])
+                        continue
+
+
+                    # cor intervals ... 1 phoneme length occasional gives swaped results
+                    if (e1_ <= b1_):
+                        b1_, e1_ = e1_, b1_
+
+                    # including the whole phoneme ... 
+                    b1_ = (b1_ - 1) if b1_ >= 1 else b1_
+                    e1_ = (e1_ + 1) if e1_ <= len(count_phonemes[file_name])-1 else e1_
+
 
                     # overall speakers = all the information
                     n_overall+=1
@@ -99,13 +113,16 @@ def cov_from_class(classes_file):
 
     # logging the results
     count_overall = np.array([])
+    total_count_overall = 0
     for file_name in count_phonemes.keys():
         count_overall = np.append(count_overall, count_phonemes[file_name])
+        total_count_overall+=len(count_phonemes[file_name])
     
     cov_overall = np.sum(count_overall.astype('int') & ngram_mask.astype('int')) / ngram_mask.sum() 
+    #ipdb.set_trace()
     #cov_overall = np.sum(count_overall.astype('int')) / ngram_mask.sum() 
     #cov_overall = count_overall.sum() / n_phones 
-    logging.info('overall: COV={:.3f} intervals={}'.format(cov_overall, n_overall))
+    logging.info('overall: COV=%.3f intervals=%d', cov_overall, n_overall)
 
 
 def find_ngrams(input_list, n=3):
@@ -145,7 +162,10 @@ def find_mask_ngrams(gold, ngrams=3):
                     mask[seen_ngram[0][0]:seen_ngram[0][-1]] = 1
                 
             else: # first time that the n-gram has been seen
-                seen_once[n_g].append(index_ngrams[n_]) 
+                seen_once[n_g].append(index_ngrams[n_])
+
+    logging.debug('mask covers %d/%d', mask.sum(), len(mask))
+
     return mask
 
 

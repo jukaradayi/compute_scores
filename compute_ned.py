@@ -34,7 +34,7 @@ except:
 
 #LOG_LEV = logging.ERROR
 LOG_LEV = logging.DEBUG
-LOG_LEV = logging.INFO
+#LOG_LEV = logging.INFO
 
 # configuration of logging
 def get_logger(level=logging.WARNING):
@@ -247,6 +247,7 @@ def read_gold_phn(phn_gold):
     df = pd.read_table(phn_gold, sep='\s+', header=None, encoding='utf8',
             names=['file', 'start', 'end', 'phon'])
     df = df.sort_values(by=['file', 'start']) # sorting the data
+    number_read_phons = len(df['phon'])
 
     # get the lexicon and translate to as integers
     symbols = list(set(df['phon']))
@@ -256,6 +257,7 @@ def read_gold_phn(phn_gold):
 
     # timestamps in gold (start, end) must be in acending order for fast search
     gold = {}
+    verification_num_phones = 0
     for k in df['file'].unique():
         start = df[df['file'] == k]['start'].values
         end = df[df['file'] == k]['end'].values
@@ -263,6 +265,10 @@ def read_gold_phn(phn_gold):
         assert not any(np.greater_equal.outer(start[:-1] - start[1:], 0)), 'start in phon file is not odered!!!'
         assert not any(np.greater_equal.outer(end[:-1] - end[1:], 0)), 'end in phon file is not odered!!!'
         gold[k] = {'start': list(start), 'end': list(end), 'phon': list(phon)} 
+        verification_num_phones += len(gold[k]['phon'])
+
+    logging.debug("%d phonemes read from %s (%d returned)", number_read_phons,
+            phn_gold, verification_num_phones) 
    
     return gold
 
