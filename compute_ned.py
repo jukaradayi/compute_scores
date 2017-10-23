@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import sys
+import math
 import os
 import logging
 import codecs
@@ -128,6 +129,7 @@ def ned_from_class(classes_file):
     # initializing variables used on the streaming computations 
     classes = list()
     n_pairs = count() # used to debug
+    total_expected_pairs = 0
 
     # objects with the streaming statistics
     cross = Stream_stats()
@@ -148,6 +150,9 @@ def ned_from_class(classes_file):
             line = lines.strip()
             if len(line) == 0: 
                 # empty line means that the class has ended and it is possilbe to compute ned
+          
+                # compute the theoretical number of pairs in each class
+                total_expected_pairs += nCr(len(classes), 2) 
                 
                 # compute the ned for all combination of intervals without replacement 
                 # in group of two
@@ -230,8 +235,8 @@ def ned_from_class(classes_file):
                 classes.append([fname, float(start), float(end)])
 
     # logging the results
-    logging.info('overall: NED=%.2f std=%.2f pairs=%d', overall.mean(),
-                 overall.std(), overall.n()) 
+    logging.info('overall: NED=%.2f std=%.2f pairs=%d (%d total pairs)', overall.mean(),
+                 overall.std(), overall.n(), total_expected_pairs) 
     logging.info('cross: NED=%.2f std=%.2f pairs=%d', cross.mean(), 
                  cross.std(), cross.n())
     logging.info('within: NED=%.2f std=%.2f pairs=%d', within.mean(), 
@@ -271,6 +276,34 @@ def read_gold_phn(phn_gold):
             phn_gold, verification_num_phones) 
    
     return gold
+
+
+def nCr(n,r):
+    '''Compute the number of combinations nCr(n,r)
+    
+    Parameters:
+    -----------
+    n : number of elements, integer
+    r : size of the group, integer
+    Returns:
+    val : number of combinations 
+    >> nCr(4,2)
+    6
+    
+    >> nCr(50,2)
+    1225L
+    
+    '''
+    f = math.factorial
+    
+    # no negative values allow
+    try:
+        r_ = f(n) / f(r) / f(n-r)
+    
+    except:
+        r_ = 0
+
+    return r_
 
 
 if __name__ == '__main__':
