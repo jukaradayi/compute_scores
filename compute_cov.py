@@ -51,7 +51,7 @@ def cov_from_class(classes_file):
     ngram_mask = find_mask_ngrams(gold, ngrams=3) 
 
     # TODO : this code assume that the class file is build correctly but if not???
-    logging.info("Parsing class file %s", classes_file)
+    #logging.info("Parsing class file %s", classes_file)
 
     # initializing things
     classes = list()
@@ -77,7 +77,7 @@ def cov_from_class(classes_file):
                         b1_ = bisect_left(gold[file_name]['start'], classes[elem1][1])
                         e1_ = bisect_right(gold[file_name]['end'], classes[elem1][2])
                     except KeyError: 
-                        logging.error("%s not in gold", classes[elem1][0])
+                        #logging.error("%s not in gold", classes[elem1][0])
                         continue
 
 
@@ -96,8 +96,8 @@ def cov_from_class(classes_file):
 
                     # it will show some work is been done ...
                     n_total = n_pairs.next()
-                    if (n_total%1e4) == 0.0:
-                        logging.debug("done %s intervals", n_total)
+                    #if (n_total%1e4) == 0.0:
+                        #logging.debug("done %s intervals", n_total)
 
                 # clean the varibles
                 classes = list()
@@ -122,7 +122,8 @@ def cov_from_class(classes_file):
     #ipdb.set_trace()
     #cov_overall = np.sum(count_overall.astype('int')) / ngram_mask.sum() 
     #cov_overall = count_overall.sum() / n_phones 
-    logging.info('overall: COV=%.3f intervals=%d', cov_overall, n_overall)
+    #logging.info('overall: COV=%.3f intervals=%d', cov_overall, n_overall)
+    print cov_overall
 
 
 def find_ngrams(input_list, n=3):
@@ -164,7 +165,7 @@ def find_mask_ngrams(gold, ngrams=3):
             else: # first time that the n-gram has been seen
                 seen_once[n_g].append(index_ngrams[n_])
 
-    logging.debug('mask covers %d/%d', mask.sum(), len(mask))
+    #logging.debug('mask covers %d/%d', mask.sum(), len(mask))
 
     return mask
 
@@ -216,7 +217,7 @@ if __name__ == '__main__':
     # TODO: check file
     disc_class = args.fclass[0]
 
-    get_logger(level=LOG_LEV)
-    logging.info("Begining computing COV for %s", disc_class)
+    #get_logger(level=LOG_LEV)
+    #logging.info("Begining computing COV for %s", disc_class)
     cov_from_class(disc_class)
-    logging.info('Finished computing COV for %s', disc_class)
+    #logging.info('Finished computing COV for %s', disc_class)

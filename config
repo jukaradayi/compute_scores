@@ -1,7 +1,15 @@
 
 # gold files
-export PHON_GOLD=./test/mandarin.phn
-export CLASS_GOLD=./test/mandarin.gold
-
-source activate cscores 
+#export PHON_GOLD=./test/mandarin.phn
+#export CLASS_GOLD=./test/mandarin.gold
+#export PHON_GOLD=./test/french.phn
+#export CLASS_GOLD=./test/french.classes
+export PHON_GOLD=./test/mock.phn
+#export PHON_GOLD=./test/english.phn
+#export CLASS_GOLD=./test/english.classes
+#export PHON_GOLD=./test/LANG2.phn
+#export CLASS_GOLD=./test/LANG2.classes
+#export PHON_GOLD=./test/LANG1.phn
+#export CLASS_GOLD=./test/LANG1.classes
+#source activate cscores 
 
