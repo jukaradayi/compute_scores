@@ -156,7 +156,7 @@ def check_phn_boundaries(gold_bg, gold_ed, gold, classes, elem):
     return first_ph_pos, last_ph_pos
 
 
-def ned_from_class(classes_file):
+def ned_from_class(classes_file, transcription):
     '''compute the ned from the tde class file.'''
   
     ## reading the phoneme gold
@@ -232,11 +232,13 @@ def ned_from_class(classes_file):
                         continue
 
                     # get the phonemes (bugfix, don't take empty list if only 1 phone discovered)
-                    
                     s1 = gold[classes[elem1][0]]['phon'][b1_:e1_] if e1_>b1_ else np.array([gold[classes[elem1][0]]['phon'][b1_]])
                     s2 = gold[classes[elem2][0]]['phon'][b2_:e2_] if e2_>b2_ else np.array([gold[classes[elem1][0]]['phon'][b2_]])
+
+                    # get transcription 
                     t1 = [ix2symbols[sym] for sym in s1]
                     t2 = [ix2symbols[sym] for sym in s2]
+
                     # short time window then it not found the phonems  
                     if len(s1) == 0 and len(s2) == 0:
                         logging.debug("%s interv(%f, %f) and %s interv(%f, %f) not in gold", 
@@ -258,7 +260,9 @@ def ned_from_class(classes_file):
                     else:
                         # 2. compute the Levenshtein distance and NED
                         ned = func_ned(s1, s2)
-                    
+                    if transcription: 
+                       logging.info(u'{} {} {} {}\t{} {} {} {} {}'.format(classes[elem1][0], classes[elem1][1], classes[elem1][2], ','.join(t1),
+                                                                  classes[elem2][0], classes[elem2][1], classes[elem2][2], ','.join(t2), ned))
                     #python standard library difflib that is not the same that levenshtein
                     #it does not yield minimal edit sequences, but does tend to 
                     #yield matches that look right to people
@@ -266,17 +270,9 @@ def ned_from_class(classes_file):
                     
                     # streaming statisitcs  
                     if classes[elem1][0] == classes[elem2][0]: # within 
-                        print classes[elem1],t1
-                        print classes[elem2],t2
-                        print ned
-                        print "within"
                         within.add(ned)
                         
                     else: # cross speaker 
-                        print classes[elem1],t1
-                        print classes[elem2],t2
-                        print ned
-                        print "across"
                         cross.add(ned)
 
                     # overall speakers = all the information
@@ -384,7 +380,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(epilog=command_example)
     parser.add_argument('fclass', metavar='CLASS_FILE', nargs=1, \
             help='Class file in tde format')
-    parser.add_argument('--transcription', metavar='TRANSCRIPTION', action='store_true', \
+    parser.add_argument('--transcription', action='store_true', \
             help='Enable to output complete transcription of pairs found')
     args = parser.parse_args()
 
@@ -393,6 +389,6 @@ if __name__ == '__main__':
 
     get_logger(level=LOG_LEV)
     logging.info("Begining computing NED for %s", disc_class)
-    ned_from_class(disc_class)
+    ned_from_class(disc_class, args.transcription)
     logging.info('Finished computing NED for %s', disc_class)
 
