@@ -116,7 +116,8 @@ def check_phn_boundaries(gold_bg, gold_ed, gold, classes, elem):
     '''
     # get discovered phones timestamps
     spkr, disc_bg, disc_ed = classes[elem]
-
+    if disc_bg == 0.6725:
+        pdb.set_trace()
     # get first phone timestamps
     first_ph_bg = gold[spkr]['start'][max(gold_bg-1,0)] # avoid taking last element if gold_bg = 0
     first_ph_ed = gold[spkr]['end'][max(gold_bg-1,0)] # avoid taking last element if gold_bg = 0
@@ -127,19 +128,19 @@ def check_phn_boundaries(gold_bg, gold_ed, gold, classes, elem):
     last_ph_bg = gold[spkr]['start'][min(gold_ed,len(gold[spkr]['start'])-1)]
     last_ph_ed = gold[spkr]['end'][min(gold_ed,len(gold[spkr]['start'])-1)]
     last_ph_len = last_ph_ed - last_ph_bg
-    last_ph_ov = float(last_ph_bg - disc_ed)/last_ph_len
+    last_ph_ov = float(disc_ed - last_ph_bg)/last_ph_len
 
     #pdb.set_trace()
     # check overlap between first phone in transcription and discovered word
     # Bugfix : when reading alignments, pandas approximates float values
     # and it can lead to problems when th difference between the two compared 
     # values is EXACTLY 0.03, so we have to round the values to 0.0001 precision ! 
-    if (first_ph_len >= 0.060 and round((first_ph_ed - disc_bg),4) >= 0.030) or \
-       (first_ph_len < 0.060 and first_ph_ov >= 0.5) and \
+    if (round(first_ph_len,4) >= 0.060 and round((first_ph_ed - disc_bg),4) >= 0.030) or \
+       (round(first_ph_len,4) < 0.060 and first_ph_ov >= 0.5) and \
        (gold_bg !=0 or disc_bg >first_ph_bg):
         first_ph_pos = gold_bg - 1
         
-    elif (gold_bg == 0 and disc_bg <= first_ph_bg):
+    elif (gold_bg == 0 and disc_bg <= round(first_ph_bg,4)):
         first_ph_pos = gold_bg
     else:
         first_ph_pos = gold_bg
@@ -148,8 +149,8 @@ def check_phn_boundaries(gold_bg, gold_ed, gold, classes, elem):
     # Bugfix : when reading alignments, pandas approximates float values
     # and it can lead to problems when th difference between the two compared 
     # values is EXACTLY 0.03, so we have to round the values to 0.0001 precision ! 
-    if (last_ph_len >= 0.060 and round((last_ph_bg - disc_ed),4) >= 0.030) or \
-       (last_ph_len < 0.060 and last_ph_ov >= 0.5):
+    if (round(last_ph_len,4) >= 0.060 and round((disc_ed - last_ph_bg),4) >= 0.030) or \
+       (round(last_ph_len,4) < 0.060 and last_ph_ov >= 0.5):
         last_ph_pos = gold_ed + 1
     else:
         last_ph_pos = gold_ed
@@ -213,7 +214,6 @@ def ned_from_class(classes_file, transcription):
                         b1_ = bisect_left(gold[classes[elem1][0]]['start'], classes[elem1][1])
                         e1_ = bisect_right(gold[classes[elem1][0]]['end'], classes[elem1][2])
                         b1_, e1_ = check_phn_boundaries(b1_, e1_, gold, classes, elem1)
-                        
                         #b1_ = b1_bis
                         #e1_ = e1_bis
                     except KeyError:
@@ -280,7 +280,7 @@ def ned_from_class(classes_file, transcription):
                     
                     # it will show some work is been done ...
                     n_total = n_pairs.next()
-                    if (n_total%1e6) == 0.0:
+                    if (n_total%1e6) == 0.0 and n_total>0:
                         logging.debug("done %s pairs", n_total)
 
                 # clean the varibles that contains the tokens
