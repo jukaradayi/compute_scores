@@ -138,7 +138,7 @@ def check_phn_boundaries(gold_bg, gold_ed, gold, classes, elem):
     if (round(first_ph_len,4) >= 0.060 and round((first_ph_ed - disc_bg),4) >= 0.030) or \
        (round(first_ph_len,4) < 0.060 and first_ph_ov >= 0.5) and \
        (gold_bg !=0 or disc_bg >first_ph_bg):
-        first_ph_pos = gold_bg - 1
+        first_ph_pos = gold_bg - 1 if gold_bg > 0 else 0 
         
     elif (gold_bg == 0 and disc_bg <= round(first_ph_bg,4)):
         first_ph_pos = gold_bg
@@ -151,7 +151,7 @@ def check_phn_boundaries(gold_bg, gold_ed, gold, classes, elem):
     # values is EXACTLY 0.03, so we have to round the values to 0.0001 precision ! 
     if (round(last_ph_len,4) >= 0.060 and round((disc_ed - last_ph_bg),4) >= 0.030) or \
        (round(last_ph_len,4) < 0.060 and last_ph_ov >= 0.5):
-        last_ph_pos = gold_ed + 1
+        last_ph_pos = gold_ed + 1 if gold_ed < len(gold[spkr]['end']) else gold_ed
     else:
         last_ph_pos = gold_ed
     return first_ph_pos, last_ph_pos
@@ -233,7 +233,7 @@ def ned_from_class(classes_file, transcription):
 
                     # get the phonemes (bugfix, don't take empty list if only 1 phone discovered)
                     s1 = gold[classes[elem1][0]]['phon'][b1_:e1_] if e1_>b1_ else np.array([gold[classes[elem1][0]]['phon'][b1_]])
-                    s2 = gold[classes[elem2][0]]['phon'][b2_:e2_] if e2_>b2_ else np.array([gold[classes[elem1][0]]['phon'][b2_]])
+                    s2 = gold[classes[elem2][0]]['phon'][b2_:e2_] if e2_>b2_ else np.array([gold[classes[elem2][0]]['phon'][b2_]])
 
                     # get transcription 
                     t1 = [ix2symbols[sym] for sym in s1]
