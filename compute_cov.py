@@ -9,6 +9,7 @@ from itertools import combinations, count
 from collections import defaultdict
 import argparse
 import ipdb
+import pdb
 
 
 import numpy as np
@@ -44,11 +45,11 @@ def cov_from_class(classes_file):
 
     ## reading the phoneme gold
     phn_gold = PHON_GOLD 
-    gold = read_gold_phn(phn_gold)
+    gold, _ = read_gold_phn(phn_gold)
 
     # get the vector ngram_mask filled with 1s at positions in the gold vector
     # with repeted ngrams more that once in the gold. 
-    ngram_mask = find_mask_ngrams(gold, ngrams=3) 
+    #ngram_mask = find_mask_ngrams(gold, ngrams=3) 
 
     # TODO : this code assume that the class file is build correctly but if not???
     #logging.info("Parsing class file %s", classes_file)
@@ -76,25 +77,26 @@ def cov_from_class(classes_file):
                     try:
                         b1_ = bisect_left(gold[file_name]['start'], classes[elem1][1])
                         e1_ = bisect_right(gold[file_name]['end'], classes[elem1][2])
+                        b1_, e1_ = check_phn_boundaries(b1_, e1_, gold, classes, elem1)
                     except KeyError: 
                         #logging.error("%s not in gold", classes[elem1][0])
                         continue
 
 
-                    # cor intervals ... 1 phoneme length occasional gives swaped results
-                    if (e1_ <= b1_):
-                        b1_, e1_ = e1_, b1_
+                    ## cor intervals ... 1 phoneme length occasional gives swaped results
+                    #if (e1_ <= b1_):
+                    #    b1_, e1_ = e1_, b1_
 
-                    # including the whole phoneme ... 
-                    b1_ = (b1_ - 1) if b1_ >= 1 else b1_
-                    e1_ = (e1_ + 1) if e1_ <= len(count_phonemes[file_name])-1 else e1_
+                    ## including the whole phoneme ... 
+                    #b1_ = (b1_ - 1) if b1_ >= 1 else b1_
+                    #e1_ = (e1_ + 1) if e1_ <= len(count_phonemes[file_name])-1 else e1_
 
 
                     # overall speakers = all the information
                     n_overall+=1
                     count_phonemes[file_name][b1_:e1_] = 1
 
-                    # it will show some work is been done ...
+                    # it will show some work has been done ...
                     n_total = n_pairs.next()
                     #if (n_total%1e4) == 0.0:
                         #logging.debug("done %s intervals", n_total)
@@ -118,10 +120,10 @@ def cov_from_class(classes_file):
         count_overall = np.append(count_overall, count_phonemes[file_name])
         total_count_overall+=len(count_phonemes[file_name])
     
-    cov_overall = np.sum(count_overall.astype('int') & ngram_mask.astype('int')) / ngram_mask.sum() 
+    #cov_overall = np.sum(count_overall.astype('int') & ngram_mask.astype('int')) / ngram_mask.sum() 
     #ipdb.set_trace()
     #cov_overall = np.sum(count_overall.astype('int')) / ngram_mask.sum() 
-    #cov_overall = count_overall.sum() / n_phones 
+    cov_overall = count_overall.sum() / n_phones 
     #logging.info('overall: COV=%.3f intervals=%d', cov_overall, n_overall)
     print cov_overall
 
@@ -201,6 +203,52 @@ def read_gold_class(class_gold, gold_phn):
 
     return mask
 
+def check_phn_boundaries(gold_bg, gold_ed, gold, classes, elem):
+    ''' check boundaries of discovered phone.
+        If discovered "word" contains 50% of a phone, or more than
+        30ms of a phone, we consider that phone discovered.
+    '''
+    # get discovered phones timestamps
+    spkr, disc_bg, disc_ed = classes[elem]
+    # get first phone timestamps
+    first_ph_bg = gold[spkr]['start'][max(gold_bg-1,0)] # avoid taking last element if gold_bg = 0
+    first_ph_ed = gold[spkr]['end'][max(gold_bg-1,0)] # avoid taking last element if gold_bg = 0
+    first_ph_len = first_ph_ed - first_ph_bg
+    first_ph_ov = float(first_ph_ed - disc_bg)/first_ph_len
+
+    # get last phone timestamps
+    last_ph_bg = gold[spkr]['start'][min(gold_ed,len(gold[spkr]['start'])-1)]
+    last_ph_ed = gold[spkr]['end'][min(gold_ed,len(gold[spkr]['start'])-1)]
+    last_ph_len = last_ph_ed - last_ph_bg
+    last_ph_ov = float(disc_ed - last_ph_bg)/last_ph_len
+
+    #pdb.set_trace()
+    # check overlap between first phone in transcription and discovered word
+    # Bugfix : when reading alignments, pandas approximates float values
+    # and it can lead to problems when th difference between the two compared 
+    # values is EXACTLY 0.03, so we have to round the values to 0.0001 precision ! 
+    if (round(first_ph_len,4) >= 0.060 and round((first_ph_ed - disc_bg),4) >= 0.030) or \
+       (round(first_ph_len,4) < 0.060 and first_ph_ov >= 0.5) and \
+       (gold_bg !=0 or disc_bg >first_ph_bg):
+        # avoid substracting - 1 when already first phone in Gold
+        first_ph_pos = gold_bg - 1 if gold_bg > 0 else 0 
+        
+    elif (gold_bg == 0 and disc_bg <= round(first_ph_bg,4)):
+        first_ph_pos = gold_bg
+    else:
+        first_ph_pos = gold_bg
+    
+    # check overlap between last phone in transcription and discovered word
+    # Bugfix : when reading alignments, pandas approximates float values
+    # and it can lead to problems when th difference between the two compared 
+    # values is EXACTLY 0.03, so we have to round the values to 0.0001 precision ! 
+    if (round(last_ph_len,4) >= 0.060 and round((disc_ed - last_ph_bg),4) >= 0.030) or \
+       (round(last_ph_len,4) < 0.060 and last_ph_ov >= 0.5):
+        # avoid adding + 1 if already last phone in Gold
+        last_ph_pos = gold_ed + 1 if gold_ed < len(gold[spkr]['end']) - 1  else gold_ed
+    else:
+        last_ph_pos = gold_ed
+    return first_ph_pos, last_ph_pos
 
 if __name__ == '__main__':
 
