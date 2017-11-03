@@ -15,7 +15,7 @@ import pdb
 import numpy as np
 import pandas as pd
 
-from compute_ned import read_gold_phn
+from utils import read_gold_phn, check_phn_boundaries
 
 
 # load environmental varibles
@@ -203,52 +203,6 @@ def read_gold_class(class_gold, gold_phn):
 
     return mask
 
-def check_phn_boundaries(gold_bg, gold_ed, gold, classes, elem):
-    ''' check boundaries of discovered phone.
-        If discovered "word" contains 50% of a phone, or more than
-        30ms of a phone, we consider that phone discovered.
-    '''
-    # get discovered phones timestamps
-    spkr, disc_bg, disc_ed = classes[elem]
-    # get first phone timestamps
-    first_ph_bg = gold[spkr]['start'][max(gold_bg-1,0)] # avoid taking last element if gold_bg = 0
-    first_ph_ed = gold[spkr]['end'][max(gold_bg-1,0)] # avoid taking last element if gold_bg = 0
-    first_ph_len = first_ph_ed - first_ph_bg
-    first_ph_ov = float(first_ph_ed - disc_bg)/first_ph_len
-
-    # get last phone timestamps
-    last_ph_bg = gold[spkr]['start'][min(gold_ed,len(gold[spkr]['start'])-1)]
-    last_ph_ed = gold[spkr]['end'][min(gold_ed,len(gold[spkr]['start'])-1)]
-    last_ph_len = last_ph_ed - last_ph_bg
-    last_ph_ov = float(disc_ed - last_ph_bg)/last_ph_len
-
-    #pdb.set_trace()
-    # check overlap between first phone in transcription and discovered word
-    # Bugfix : when reading alignments, pandas approximates float values
-    # and it can lead to problems when th difference between the two compared 
-    # values is EXACTLY 0.03, so we have to round the values to 0.0001 precision ! 
-    if (round(first_ph_len,4) >= 0.060 and round((first_ph_ed - disc_bg),4) >= 0.030) or \
-       (round(first_ph_len,4) < 0.060 and first_ph_ov >= 0.5) and \
-       (gold_bg !=0 or disc_bg >first_ph_bg):
-        # avoid substracting - 1 when already first phone in Gold
-        first_ph_pos = gold_bg - 1 if gold_bg > 0 else 0 
-        
-    elif (gold_bg == 0 and disc_bg <= round(first_ph_bg,4)):
-        first_ph_pos = gold_bg
-    else:
-        first_ph_pos = gold_bg
-    
-    # check overlap between last phone in transcription and discovered word
-    # Bugfix : when reading alignments, pandas approximates float values
-    # and it can lead to problems when th difference between the two compared 
-    # values is EXACTLY 0.03, so we have to round the values to 0.0001 precision ! 
-    if (round(last_ph_len,4) >= 0.060 and round((disc_ed - last_ph_bg),4) >= 0.030) or \
-       (round(last_ph_len,4) < 0.060 and last_ph_ov >= 0.5):
-        # avoid adding + 1 if already last phone in Gold
-        last_ph_pos = gold_ed + 1 if gold_ed < len(gold[spkr]['end']) - 1  else gold_ed
-    else:
-        last_ph_pos = gold_ed
-    return first_ph_pos, last_ph_pos
 
 if __name__ == '__main__':
 
