@@ -6,7 +6,7 @@ import codecs
 from bisect import bisect_left, bisect_right, bisect
 from itertools import combinations, count
 import argparse
-import pdb
+import ipdb
 
 import numpy as np 
 import pandas as pd
@@ -67,7 +67,7 @@ def check_phn_boundaries(gold_bg, gold_ed, gold, classes, elem):
     last_ph_len = last_ph_ed - last_ph_bg
     last_ph_ov = float(disc_ed - last_ph_bg)/last_ph_len
 
-    #pdb.set_trace()
+    #ipdb.set_trace()
     # check overlap between first phone in transcription and discovered word
     # Bugfix : when reading alignments, pandas approximates float values
     # and it can lead to problems when th difference between the two compared 

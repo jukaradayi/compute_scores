@@ -9,7 +9,6 @@ from itertools import combinations, count
 from collections import defaultdict
 import argparse
 import ipdb
-import pdb
 
 
 import numpy as np
@@ -52,7 +51,7 @@ def cov_from_class(classes_file):
     #ngram_mask = find_mask_ngrams(gold, ngrams=3) 
 
     # TODO : this code assume that the class file is build correctly but if not???
-    #logging.info("Parsing class file %s", classes_file)
+    logging.info("Parsing class file %s", classes_file)
 
     # initializing things
     classes = list()
@@ -79,7 +78,7 @@ def cov_from_class(classes_file):
                         e1_ = bisect_right(gold[file_name]['end'], classes[elem1][2])
                         b1_, e1_ = check_phn_boundaries(b1_, e1_, gold, classes, elem1)
                     except KeyError: 
-                        #logging.error("%s not in gold", classes[elem1][0])
+                        logging.error("%s not in gold", classes[elem1][0])
                         continue
 
 
@@ -98,8 +97,8 @@ def cov_from_class(classes_file):
 
                     # it will show some work has been done ...
                     n_total = n_pairs.next()
-                    #if (n_total%1e4) == 0.0:
-                        #logging.debug("done %s intervals", n_total)
+                    if (n_total%1e4) == 0.0 and n_total > 0:
+                        logging.debug("done %s intervals", n_total)
 
                 # clean the varibles
                 classes = list()
@@ -124,8 +123,7 @@ def cov_from_class(classes_file):
     #ipdb.set_trace()
     #cov_overall = np.sum(count_overall.astype('int')) / ngram_mask.sum() 
     cov_overall = count_overall.sum() / n_phones 
-    #logging.info('overall: COV=%.3f intervals=%d', cov_overall, n_overall)
-    print cov_overall
+    logging.info('overall: COV=%.3f intervals=%d', cov_overall, n_overall)
 
 
 def find_ngrams(input_list, n=3):
@@ -219,7 +217,7 @@ if __name__ == '__main__':
     # TODO: check file
     disc_class = args.fclass[0]
 
-    #get_logger(level=LOG_LEV)
-    #logging.info("Begining computing COV for %s", disc_class)
+    get_logger(level=LOG_LEV)
+    logging.info("Begining computing COV for %s", disc_class)
     cov_from_class(disc_class)
-    #logging.info('Finished computing COV for %s', disc_class)
+    logging.info('Finished computing COV for %s', disc_class)
