@@ -128,15 +128,19 @@ def ned_from_class(classes_file, transcription):
 
                     # get the phonemes (bugfix, don't take empty list if only 1 phone discovered)
                     try:
-                        s1 = gold[classes[elem1][0]]['phon'][b1_:e1_] if e1_>b1_ \
-                             else np.array([gold[classes[elem1][0]]['phon'][b1_]])
+                        s1 = gold[classes[elem1][0]]['phon'][b1_:e1_] #if e1_>b1_
+                        #     else np.array([gold[classes[elem1][0]]['phon'][b1_]])
+                        #if e1_ == b1_:
+                        #    ipdb.set_trace()
                     except:
                         # if detected phone is completely out of alignment
 
                         s1 = []
                     try:
-                        s2 = gold[classes[elem2][0]]['phon'][b2_:e2_] if e2_>b2_ \
-                             else np.array([gold[classes[elem2][0]]['phon'][b2_]])
+                        s2 = gold[classes[elem2][0]]['phon'][b2_:e2_] # if e2_>b2_
+                        #     else np.array([gold[classes[elem2][0]]['phon'][b2_]])
+                        #if e2_==b2_:
+                        #    ipdb.set_trace()
                     except IndexError:
                         # if detected phone is completely out of alignment
                         s2 = []

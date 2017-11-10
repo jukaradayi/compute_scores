@@ -134,10 +134,8 @@ def find_ngrams(input_list, n=3):
 
 def find_mask_ngrams(gold, ngrams=3):
     ''' create a mask with the size of the gold for ngrams that are found more than once in the corpus'''
-
     n_phones = sum([len(gold[k]['start']) for k in gold.keys()])
     mask = np.zeros(n_phones) 
-    
     all_grams = defaultdict(int)
     seen_once = defaultdict(list)
     high_index = 0
@@ -166,7 +164,7 @@ def find_mask_ngrams(gold, ngrams=3):
                 seen_once[n_g].append(index_ngrams[n_])
 
     #logging.debug('mask covers %d/%d', mask.sum(), len(mask))
-
+    #ipdb.set_trace()
     return mask
 
 
