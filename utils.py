@@ -11,6 +11,9 @@ import ipdb
 import numpy as np 
 import pandas as pd
 import editdistance # see (1)
+from collections import defaultdict
+import intervaltree
+
 
 def read_gold_phn(phn_gold):
     ''' read the gold phoneme file with fields : speaker/file start end phon,
@@ -48,11 +51,87 @@ def read_gold_phn(phn_gold):
    
     return gold, ix2symbols
 
+def read_gold_intervals(phn_gold):
+    '''Read the gold alignment and build an interval tree (O( log(n) )).
+    After that, take each found interval, search for its overlaps
+    (O( log(n) + m), m being the number of results found),
+    and check if we want to keep each interval.
+    INPUT
+    =====
+    - phn_gold : the path to the gold alignment
+    OUTPUT
+    ======
+    - gold: a dict {fname: intervaltree} which returns the interval tree
+            of the gold phones for each file
+    - ix2symbols: a dict that returns the symbols for each index of encoding
+                  (to compute the ned, we assign numbers to symbols)
+    '''
+
+    # read the gold and create a list of tuples for each filename, then create an interval
+    # tree from this list of tuple.
+    intervals = defaultdict(list)
+    gold = dict()
+    symbols = list() # create a set of all the available symbols
+    transcription = dict() # create dict that returns the transcription for an interval
+    with open(phn_gold, 'r') as fin:
+        ali = fin.readlines()
+
+        for line in ali:
+            fname, on, off, symbol = line.strip('\n').split(' ')
+            intervals[fname].append((float(on), float(off)))
+            transcription[(fname, float(on), float(off))] = symbol
+            symbols.append(symbol)
+
+        # for each filename, create an interval tree
+        for fname in intervals:
+            gold[fname] = intervaltree.IntervalTree.from_tuples(intervals[fname])
+
+        # create a mapping index -> symbols for the phones
+    symbol2ix = {v: k for k, v in enumerate(symbols)}
+    ix2symbols = dict((v,k) for k,v in symbol2ix.iteritems())
+
+    return gold, transcription, ix2symbols, symbol2ix
+
+
+def get_intervals(fname, on, off, gold, transcription):
+    """ Given a filename and an interval, retrieve the list of 
+    covered intervals, and their transcription.
+    This is done using intervaltree.search, which is supposed to 
+    work in O(log(n) + m), n being the number of intervals and m 
+    the number of covered intervals.
+    """
+    def overlap(a, b, interval):
+        ov = (min(b, interval[1]) - max(a, interval[0]))\
+                /(interval[1] - interval[0])
+        time = min(b, interval[1]) - max(a, interval[0])
+        return ov, time
+
+    # search interval tree
+    cov_int = gold[fname].search(on, off)
+    cov_trs = [] # retrieved transcription
+
+    # check each interval to see if we keep it or not.
+    # In particular, check if found interval contains
+    # more than 30 ms or more than 50% of phone.
+    for interval in cov_int:
+        int_ov, time = overlap(on, off, interval)
+        if round(int_ov, 4) >= 0.50 or round(time,4) >= 0.03:
+            cov_trs.append((interval[0], interval[1], transcription[(fname, interval[0], interval[1])]))
+    
+    # finally, sort the transcription by onsets, because intervaltree
+    # doesn't necessarily return the intervals in order...
+    cov_trs.sort()
+    trs = [t for b, e, t in cov_trs]
+
+    return cov_int, trs
+
+
 def check_phn_boundaries(gold_bg, gold_ed, gold, classes, elem):
     ''' check boundaries of discovered phone.
         If discovered "word" contains 50% of a phone, or more than
         30ms of a phone, we consider that phone discovered.
     '''
+    ipdb.set_trace()
     # get discovered phones timestamps
     spkr, disc_bg, disc_ed = classes[elem]
     # get first phone timestamps

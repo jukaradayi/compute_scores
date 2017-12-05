@@ -15,7 +15,8 @@ import numpy as np
 import pandas as pd
 import editdistance # see (1)
 
-from utils import read_gold_phn, check_phn_boundaries, Stream_stats, nCr
+#from utils import read_gold_phn, check_phn_boundaries, Stream_stats, nCr
+from utils import *
 
 import difflib
 #from joblib import Parallel, delayed
@@ -38,8 +39,8 @@ except:
     LOG = 'test.log' 
 
 #LOG_LEV = logging.ERROR
-LOG_LEV = logging.DEBUG
-#LOG_LEV = logging.INFO
+#LOG_LEV = logging.DEBUG
+LOG_LEV = logging.INFO
 
 # configuration of logging
 def get_logger(level=logging.WARNING):
@@ -57,7 +58,8 @@ def ned_from_class(classes_file, transcription):
   
     ## reading the phoneme gold
     phn_gold = PHON_GOLD 
-    gold, ix2symbols = read_gold_phn(phn_gold) 
+    #gold, ix2symbols = read_gold_phn(phn_gold)
+    gold, trs, ix2symbols, symbol2ix = read_gold_intervals(phn_gold)
 
     
     # parsing the class file.
@@ -109,52 +111,70 @@ def ned_from_class(classes_file, transcription):
                     # 1. search for the intevals in the phoneme file
                     
                     # first file 
+                    #try:
+                    #    
+                    #    b1_ = bisect_left(gold[classes[elem1][0]]['start'], classes[elem1][1])
+                    #    e1_ = bisect_right(gold[classes[elem1][0]]['end'], classes[elem1][2])
+                    #    b1_, e1_ = check_phn_boundaries(b1_, e1_, gold, classes, elem1)
+                    #except KeyError:
+                    #    logging.error("%s not in gold", classes[elem1][0])
+                    #    continue
                     try:
-                        b1_ = bisect_left(gold[classes[elem1][0]]['start'], classes[elem1][1])
-                        e1_ = bisect_right(gold[classes[elem1][0]]['end'], classes[elem1][2])
-                        b1_, e1_ = check_phn_boundaries(b1_, e1_, gold, classes, elem1)
-                    except KeyError:
-                        logging.error("%s not in gold", classes[elem1][0])
-                        continue
+                        fname, on, off = classes[elem1]
+                        int1, t1 = get_intervals(fname, float(on), float(off), gold, trs)
+                        s1 = [symbol2ix[sym] for sym in t1]
+
+                    except:
+                        #ipdb.set_trace()
+                        print('BUGBUGBUG, exit now')
                     
                     # second file
-                    try: 
-                        b2_ = bisect_left(gold[classes[elem2][0]]['start'], classes[elem2][1])
-                        e2_ = bisect_right(gold[classes[elem2][0]]['end'], classes[elem2][2])
-                        b2_, e2_ = check_phn_boundaries(b2_, e2_, gold, classes, elem2)
-                    except KeyError:
-                        logging.error("%s not in gold", classes[elem2][0])
-                        continue
-
-                    # get the phonemes (bugfix, don't take empty list if only 1 phone discovered)
+                    #try: 
+                    #    b2_ = bisect_left(gold[classes[elem2][0]]['start'], classes[elem2][1])
+                    #    e2_ = bisect_right(gold[classes[elem2][0]]['end'], classes[elem2][2])
+                    #    b2_, e2_ = check_phn_boundaries(b2_, e2_, gold, classes, elem2)
+                    #except KeyError:
+                    #    logging.error("%s not in gold", classes[elem2][0])
+                    #    continue
                     try:
-                        s1 = gold[classes[elem1][0]]['phon'][b1_:e1_] #if e1_>b1_
-                        #     else np.array([gold[classes[elem1][0]]['phon'][b1_]])
-                        #if e1_ == b1_:
-                        #    ipdb.set_trace()
+                        fname, on, off = classes[elem2]
+                        int2, t2 = get_intervals(fname, float(on), float(off), gold, trs)
+                        s2 = [symbol2ix[sym] for sym in t2]
+
                     except:
-                        # if detected phone is completely out of alignment
+                        #ipdb.set_trace()
+                        print('BUGBUGBUG, exit now')
 
-                        s1 = []
-                    try:
-                        s2 = gold[classes[elem2][0]]['phon'][b2_:e2_] # if e2_>b2_
-                        #     else np.array([gold[classes[elem2][0]]['phon'][b2_]])
-                        #if e2_==b2_:
-                        #    ipdb.set_trace()
-                    except IndexError:
-                        # if detected phone is completely out of alignment
-                        s2 = []
+
+                    ## get the phonemes (bugfix, don't take empty list if only 1 phone discovered)
+                    #try:
+                    #    s1 = gold[classes[elem1][0]]['phon'][b1_:e1_]# if e1_>b1_ \
+                    #    #     else np.array([gold[classes[elem1][0]]['phon'][b1_]])
+                    #    #if e1_ == b1_:
+                    #    #    ipdb.set_trace()
+                    #except:
+                    #    # if detected phone is completely out of alignment
+
+                    #    s1 = []
+                    #try:
+                    #    s2 = gold[classes[elem2][0]]['phon'][b2_:e2_]#  if e2_>b2_ \
+                    #    #     else np.array([gold[classes[elem2][0]]['phon'][b2_]])
+                    #    #if e2_==b2_:
+                    #    #    ipdb.set_trace()
+                    #except IndexError:
+                    #    # if detected phone is completely out of alignment
+                    #    s2 = []
 
                     # get transcription 
-                    t1 = [ix2symbols[sym] for sym in s1]
-                    t2 = [ix2symbols[sym] for sym in s2]
+                    #t1 = [ix2symbols[sym] for sym in s1]
+                    #t2 = [ix2symbols[sym] for sym in s2]
 
                     # if on or both of the word is not found in the gold, go to next pair  
                     if len(s1) == 0 and len(s2) == 0:
                         throwaway_pairs += 1
                         logging.debug("%s interv(%f, %f) and %s interv(%f, %f) not in gold", 
-                                classes[elem1][0], b1_, e1_,
-                                classes[elem2][0], b2_, e2_)
+                                classes[elem1][0], classes[elem1][1], classes[elem1][2],
+                                classes[elem2][0], classes[elem2][1], classes[elem2][2])
                         #neds_ = 1.0
                         continue
                   
@@ -163,10 +183,10 @@ def ned_from_class(classes_file, transcription):
                         #neds_ = 1.0
                         if s1 == 0:
                             logging.debug("%s interv(%f, %f) not in gold",
-                                    classes[elem1][0], b1_, e1_)
+                                    classes[elem1][0], classes[elem1][1], classes[elem1][2])
                         else:
                             logging.debug("%s interv(%f, %f) not in gold",
-                                    classes[elem2][0], b2_, e2_)
+                                    classes[elem2][0], classes[elem2][1], classes[elem2][2])
                         continue
                     else:
                         # 2. compute the Levenshtein distance and NED
@@ -175,9 +195,9 @@ def ned_from_class(classes_file, transcription):
                     # if requested, output the transcription of current pair, along with its ned
                     if transcription: 
                        logging.info(u'{} {} {} {}\t{} {} {} {} {}'.format(classes[elem1][0], classes[elem1][1],
-                                                                          classes[elem1][2], ','.join(t1),
+                                                                          classes[elem1][2], ','.join(t1).decode('utf8'),
                                                                           classes[elem2][0], classes[elem2][1],
-                                                                          classes[elem2][2], ','.join(t2), ned))
+                                                                          classes[elem2][2], ','.join(t2).decode('utf8'), ned))
 
                     #python standard library difflib that is not the same that levenshtein
                     #it does not yield minimal edit sequences, but does tend to 
