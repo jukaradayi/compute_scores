@@ -14,7 +14,7 @@ import ipdb
 import numpy as np
 import pandas as pd
 
-from utils import read_gold_phn, check_phn_boundaries
+from utils import *
 
 
 # load environmental varibles
@@ -40,11 +40,21 @@ def get_logger(level=logging.WARNING):
 
 
 def cov_from_class(classes_file):
-    '''compute the cov from the tde class file.'''
+    ''' Compute the cov from the tde class file.
+        This scripts takes a dictionnary with 1 entry 
+        per triplet (speaker, phone onset, phone offset), 
+        and parses the class file. Each time a new phone 
+        is discovered in the class file, the entry is removed
+        from the dictionnary.
+    '''
+
 
     ## reading the phoneme gold
     phn_gold = PHON_GOLD 
-    gold, _ = read_gold_phn(phn_gold)
+    #gold, _ = read_gold_phn(phn_gold)
+    gold, gold_trs, _, _ = read_gold_intervals(phn_gold)
+    undisc_trs = gold_trs.copy()
+    tot_n_ph = len(gold_trs) # total number of discoverable phones
 
     # get the vector ngram_mask filled with 1s at positions in the gold vector
     # with repeted ngrams more that once in the gold. 
@@ -54,7 +64,8 @@ def cov_from_class(classes_file):
     logging.info("Parsing class file %s", classes_file)
 
     # initializing things
-    classes = list()
+    #classes = list()
+    classes = set()
     n_pairs = count()
     n_overall = 0
     n_phones = sum([len(gold[k]['start']) for k in gold.keys()])
@@ -69,18 +80,38 @@ def cov_from_class(classes_file):
                 # empty line means that the class has ended and it is possilbe to compute cov
 
                 # compute the cov for the found intervals
-                for elem1 in range(len(classes)):
-                    file_name = classes[elem1][0]
+                #for elem1 in range(len(classes)):
+                for fname1, on1, off1 in classes:
+                    #file_name = classes[elem1][0]
 
                     # search for intevals in the phoneme file
-                    try:
-                        b1_ = bisect_left(gold[file_name]['start'], classes[elem1][1])
-                        e1_ = bisect_right(gold[file_name]['end'], classes[elem1][2])
-                        b1_, e1_ = check_phn_boundaries(b1_, e1_, gold, classes, elem1)
-                    except KeyError: 
-                        logging.error("%s not in gold", classes[elem1][0])
-                        continue
-
+                    #try:
+                    #    b1_ = bisect_left(gold[file_name]['start'], classes[elem1][1])
+                    #    e1_ = bisect_right(gold[file_name]['end'], classes[elem1][2])
+                    #    b1_, e1_ = check_phn_boundaries(b1_, e1_, gold, classes, elem1)
+                    #except KeyError: 
+                    #    logging.error("%s not in gold", classes[elem1][0])
+                    #    continue
+                    # First interval from pair
+                    #fname1, on1, off1 = classes[elem1]
+                    int1, _ = get_intervals(fname1, float(on1), float(off1), gold, gold_trs)
+                    for on, off in int1:
+                        try:
+                            del(undisc_trs[(fname1, on, off)])
+                        except:
+                            # phone already discovered
+                            pass
+                    
+                    ## Second interval from pair
+                    #fname, on, off = classes[elem2]
+                    #int2, _= get_intervals(fname, float(on), float(off), gold, trs)
+                    #for on, off in int1:
+                    #    try:
+                    #        del(trs[(fname, on, off)])
+                    #    except:
+                    #        # phone already discovered
+                    #        pass
+               
 
                     ## cor intervals ... 1 phoneme length occasional gives swaped results
                     #if (e1_ <= b1_):
@@ -93,7 +124,7 @@ def cov_from_class(classes_file):
 
                     # overall speakers = all the information
                     n_overall+=1
-                    count_phonemes[file_name][b1_:e1_] = 1
+                    #count_phonemes[file_name][b1_:e1_] = 1
 
                     # it will show some work has been done ...
                     n_total = n_pairs.next()
@@ -101,7 +132,8 @@ def cov_from_class(classes_file):
                         logging.debug("done %s intervals", n_total)
 
                 # clean the varibles
-                classes = list()
+                #classes = list()
+                classes = set()
 
             # if is found the label Class do nothing
             elif line[:5] == 'Class': # the class + number + ngram if available
@@ -110,19 +142,23 @@ def cov_from_class(classes_file):
             # getting the information of the pairs
             else:
                 fname, start, end = line.split(' ')
-                classes.append([fname, float(start), float(end)])
-
+                #classes.append([fname, float(start), float(end)])
+                classes.add((fname, float(start), float(end)))
+    
+    remain_ph = len(undisc_trs) # count remaining, not discovered, phones
+    discovered = tot_n_ph - remain_ph
+    cov_overall = float(discovered) / tot_n_ph
     # logging the results
-    count_overall = np.array([])
-    total_count_overall = 0
-    for file_name in count_phonemes.keys():
-        count_overall = np.append(count_overall, count_phonemes[file_name])
-        total_count_overall+=len(count_phonemes[file_name])
+    #count_overall = np.array([])
+    #total_count_overall = 0
+    #for file_name in count_phonemes.keys():
+    #    count_overall = np.append(count_overall, count_phonemes[file_name])
+    #    total_count_overall+=len(count_phonemes[file_name])
     
     #cov_overall = np.sum(count_overall.astype('int') & ngram_mask.astype('int')) / ngram_mask.sum() 
     #ipdb.set_trace()
     #cov_overall = np.sum(count_overall.astype('int')) / ngram_mask.sum() 
-    cov_overall = count_overall.sum() / n_phones 
+    #cov_overall = count_overall.sum() / n_phones 
     logging.info('overall: COV=%.3f intervals=%d', cov_overall, n_overall)
 
 
